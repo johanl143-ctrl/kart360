@@ -322,12 +322,8 @@
         <input type="text" id="buscadorClientes" placeholder="Buscar por nombre o teléfono..." oninput="renderClientes()">
       </div>
       <div class="toggle-row">
-        <div class="toggle-btn active" data-filtro="todos" onclick="setFiltroCliente('todos')">ACTIVOS</div>
-        <div class="toggle-btn" data-filtro="nuevos" onclick="setFiltroCliente('nuevos')">RENOVADOS NUEVOS</div>
+        <div class="toggle-btn active" data-filtro="nuevos" onclick="setFiltroCliente('nuevos')">RENOVADOS NUEVOS</div>
         <div class="toggle-btn" data-filtro="inactivo" onclick="setFiltroCliente('inactivo')">TERMINADOS</div>
-      </div>
-      <div id="bloqueRuta" class="card" style="padding:12px 14px; margin-bottom:10px;">
-        <div style="font-weight:600; font-size:13px; color:var(--teal);">Ordenar ruta — usá las flechas para mover a cada cliente</div>
       </div>
       <div id="listaClientes"></div>
     </div>
@@ -359,7 +355,7 @@
       <button class="btn btn-gold hidden" style="margin-top:6px;" onclick="abrirPagoAdelantado()" id="btnPagoAdelantado">💰 Registrar pago adelantado</button>
       <button class="btn btn-secondary" style="margin-top:6px;" onclick="state.pantallaAnterior='ficha'; abrirHistorialPagos()" id="btnVerHistorialPagos">👁️ Ver historial de pagos</button>
       <button class="btn btn-primary" style="margin-top:10px;" onclick="abrirNuevoPrestamo()" id="btnNuevoCreditoFicha">+ Nuevo crédito / renovar</button>
-      <button class="btn btn-secondary" style="margin-top:10px;" onclick="state.pantallaAnterior='ficha'; abrirMenuEditarCliente()" id="btnEditarClienteFicha">✏️ Editar cliente</button>
+      <button class="btn btn-secondary" style="margin-top:10px;" onclick="state.pantallaAnterior='ficha'; editarCliente()" id="btnEditarClienteFicha">✏️ Editar cliente</button>
       <button class="btn btn-danger hidden" style="margin-top:10px;" onclick="eliminarClienteActual()" id="btnEliminarCliente">🗑️ Eliminar cliente</button>
       <p class="hidden" id="notaNoEliminable" style="font-size:11.5px; color:var(--muted); margin-top:8px; text-align:center;">Este cliente ya no se puede eliminar: su crédito pasó su primer día. Para modificarlo, usá "Editar" (requiere autorización del administrador).</p>
     </div>
@@ -604,7 +600,7 @@ let state = {
   clientes: [],
   prestamos: [],
   movimientos: [],
-  filtroCliente: 'todos',
+  filtroCliente: 'nuevos',
   pantallaAnterior: 'clientes',
   clienteActivoId: null,
   prestamoActivoId: null,
@@ -1692,30 +1688,15 @@ function ordenarPorPrioridad(clientesIds){
 /* =========================================================
    RUTA DE COBRANZA (automática o manual)
    ========================================================= */
-async function moverClienteRuta(clienteId, direccion){
-  const activos = state.clientes.filter(c=>!clienteInactivo(c.id))
-    .slice().sort((a,b)=> (a.orden??9999)-(b.orden??9999) || a.nombre.localeCompare(b.nombre));
-  const idx = activos.findIndex(c=>c.id===clienteId);
-  const destino = idx + direccion;
-  if(idx<0 || destino<0 || destino>=activos.length) return;
-  activos.forEach((c,i)=> c.orden = i); // normalizar
-  const tmp = activos[idx].orden;
-  activos[idx].orden = activos[destino].orden;
-  activos[destino].orden = tmp;
-  renderClientes();
-  try{
-    await Promise.all(activos.map(c=>
-      supabaseClient.from('clientes').update({ orden_ruta: c.orden }).eq('id', c.id)
-    ));
-  } catch(e){
-    console.error('No se pudo guardar el nuevo orden de ruta', e);
-    toast('⚠️ El orden no se guardó en la base — revisá tu conexión');
-  }
-}
-
 function proximaCuotaAccionable(p){
   if(p.depurado) return null;
-  return p.cuotas.find(cu => cu.estado==='pendiente') || null;
+  const pendiente = p.cuotas.find(cu => cu.estado==='pendiente');
+  if(pendiente) return pendiente;
+  // Si no queda ninguna cuota "pendiente", pero la última quedó en abono
+  // (pago parcial) y todavía hay saldo sin cubrir, seguir mostrándola para cobrar.
+  const ultima = p.cuotas[p.cuotas.length-1];
+  if(ultima && ultima.estado==='abono' && saldoRestante(p) > 0) return ultima;
+  return null;
 }
 
 function cuotasDeHoyPorCliente(){
@@ -1729,12 +1710,13 @@ function cuotasDeHoyPorCliente(){
         hoyPorCliente[p.clienteId].cobradas.push({p,c});
       }
     });
-    // Pendiente por cobrar: la próxima cuota accionable, si ya está vencida (hoy o antes)
-    // Esto incluye créditos que ya pasaron su plazo original (más de 30 cuotas) y siguen debiendo.
-    // Los créditos creados/renovados hoy no entran a cobranza hasta el día siguiente.
+    // Pendiente por cobrar: la próxima cuota accionable de cada crédito activo,
+    // sin importar si ya venció, vence hoy, o todavía no llega su fecha (adelantado).
+    // Todos los clientes con crédito activo salen en Pendientes todos los días, sin excepción,
+    // salvo los créditos creados/renovados hoy, que no entran a cobranza hasta el día siguiente.
     if(p.creadoEn === hoy) return;
     const accionable = proximaCuotaAccionable(p);
-    if(accionable && accionable.fecha <= hoy){
+    if(accionable){
       hoyPorCliente[p.clienteId] = hoyPorCliente[p.clienteId] || {pendientes:[], cobradas:[]};
       hoyPorCliente[p.clienteId].pendientes.push({p, c:accionable});
     }
@@ -1753,7 +1735,7 @@ function setTabInicio(tab){
 function renderInicio(){
   document.getElementById('inicioDate').textContent = new Date().toLocaleDateString('es-UY', {weekday:'long', day:'numeric', month:'long'});
   const hoyPorCliente = cuotasDeHoyPorCliente();
-  const idsConPendientes = Object.keys(hoyPorCliente).filter(id=>hoyPorCliente[id].pendientes.length>0 && hoyPorCliente[id].cobradas.length===0);
+  const idsConPendientes = Object.keys(hoyPorCliente).filter(id=>hoyPorCliente[id].pendientes.length>0);
   const idsConCobrados = Object.keys(hoyPorCliente).filter(id=>hoyPorCliente[id].cobradas.length>0);
 
   document.getElementById('tabCountPendientes').textContent = `(${idsConPendientes.length})`;
@@ -1793,6 +1775,7 @@ function pillEstadoCuotaHoy(cuota){
   if(cuota.estado==='pagada') return ['pill-ok','Cobrado'];
   if(cuota.estado==='abono') return ['pill-warn','Abono'];
   if(cuota.estado==='no-pago') return ['pill-late','No pagó'];
+  if(cuota.fecha > todayISO()) return ['pill-ok','Adelantado'];
   return ['pill-neutral','Pendiente'];
 }
 
@@ -1825,22 +1808,11 @@ function renderClientes(){
   let lista = state.clientes.filter(c=>{
     const matchQ = !q || c.nombre.toLowerCase().includes(q) || c.telefono.includes(q);
     const inactivo = clienteInactivo(c.id);
-    const color = colorCliente(c.id);
     const actual = creditoActualDe(c.id);
     const esNuevoHoy = !!actual && actual.creadoEn === hoy;
-    let matchF = true;
-    if(state.filtroCliente==='inactivo') matchF = inactivo;
-    else if(state.filtroCliente==='nuevos') matchF = esNuevoHoy;
-    else if(state.filtroCliente!=='todos') matchF = !inactivo && !esNuevoHoy && color===state.filtroCliente;
-    else matchF = !inactivo && !esNuevoHoy;
+    const matchF = state.filtroCliente==='inactivo' ? inactivo : esNuevoHoy;
     return matchQ && matchF;
   });
-
-  const esVistaRuta = state.filtroCliente==='todos';
-  document.getElementById('bloqueRuta').classList.toggle('hidden', !esVistaRuta);
-  if(esVistaRuta){
-    lista.sort((a,b)=> (a.orden??9999)-(b.orden??9999) || a.nombre.localeCompare(b.nombre));
-  }
 
   document.getElementById('clientesCount').textContent = `${state.clientes.length} cliente${state.clientes.length===1?'':'s'}`;
 
@@ -1851,26 +1823,13 @@ function renderClientes(){
     return;
   }
   const wrap = document.createElement('div'); wrap.className='card'; wrap.style.padding='0 16px';
-  lista.forEach((c,idx)=>{
+  lista.forEach((c)=>{
     const color = colorCliente(c.id);
     const inactivo = clienteInactivo(c.id);
     const pillClass = inactivo ? 'pill-muted' : color==='rojo' ? 'pill-late' : color==='amarillo' ? 'pill-warn' : 'pill-ok';
     const pillText = inactivo ? 'Lista de espera' : color==='rojo' ? 'Mora' : color==='amarillo' ? 'Atrasado' : 'Al día';
     const row = document.createElement('div'); row.className='list-row'; row.onclick=()=>{ state.pantallaAnterior='clientes'; abrirFicha(c.id); };
-
-    let extra = '';
-    if(esVistaRuta && state.modoRuta==='manual'){
-      extra = `
-        <div class="orden-arrows" onclick="event.stopPropagation()">
-          <button class="icon-btn" ${idx===0?'disabled':''} onclick="moverClienteRuta('${c.id}',-1)">▲</button>
-          <button class="icon-btn" ${idx===lista.length-1?'disabled':''} onclick="moverClienteRuta('${c.id}',1)">▼</button>
-        </div>`;
-    } else if(esVistaRuta){
-      extra = `<span class="orden-num">${idx+1}</span>`;
-    }
-
     row.innerHTML = `
-      ${extra}
       <div class="avatar dot-${color}">${escapeHtml(iniciales(c.nombre))}</div>
       <div class="info"><div class="name">${escapeHtml(c.nombre)}</div><div class="meta">${escapeHtml(c.telefono)}</div></div>
       <span class="pill ${pillClass}">${pillText}</span>`;
@@ -2524,11 +2483,11 @@ function montoPagadoHoyPorPrestamo(prestamo){
 function preguntarEnviarComprobante(cliente, prestamo, cuota){
   if(!cliente.telefono) return;
   const bar = document.createElement('div');
-  bar.style.cssText = 'position:fixed; bottom:78px; left:50%; transform:translateX(-50%); background:#fff; border:1px solid var(--line); border-radius:14px; box-shadow:0 8px 24px rgba(0,0,0,0.18); padding:9px 10px; display:flex; gap:6px; align-items:center; z-index:60; max-width:92%;';
+  bar.style.cssText = 'position:fixed; bottom:78px; left:50%; transform:translateX(-50%); background:#fff; border:1px solid var(--line); border-radius:16px; box-shadow:0 10px 30px rgba(0,0,0,0.22); padding:14px 16px; display:flex; flex-direction:column; gap:10px; align-items:stretch; z-index:60; width:88%; max-width:340px;';
   bar.innerHTML = `
-    <span style="font-size:11.5px; color:var(--ink-soft); margin-right:2px; white-space:nowrap;">¿Avisarle al cliente?</span>
-    <button id="btnEnviarAhoraMini" style="font-size:11.5px; padding:5px 9px; border-radius:8px; border:none; background:var(--teal); color:#fff; cursor:pointer; white-space:nowrap;">💬 Enviar</button>
-    <button id="btnEnviarDespuesMini" style="font-size:11.5px; padding:5px 9px; border-radius:8px; border:1px solid var(--line); background:#fff; color:var(--ink-soft); cursor:pointer; white-space:nowrap;">Después</button>
+    <span style="font-size:14px; color:var(--ink); font-weight:600; text-align:center;">¿Avisarle al cliente?</span>
+    <button id="btnEnviarAhoraMini" style="font-size:16px; font-weight:700; padding:14px 12px; border-radius:12px; border:none; background:var(--teal); color:#fff; cursor:pointer;">💬 Enviar comprobante</button>
+    <button id="btnEnviarDespuesMini" style="font-size:13px; padding:9px 10px; border-radius:10px; border:1px solid var(--line); background:#fff; color:var(--ink-soft); cursor:pointer;">Después</button>
   `;
   document.body.appendChild(bar);
   const cerrar = ()=>{ if(bar.parentNode) bar.remove(); };
@@ -2551,9 +2510,12 @@ function abrirModalCuota(prestamoId, idx){
   const cu = p.cuotas[idx];
   const cliente = state.clientes.find(cl=>cl.id===p.clienteId);
   const hoy = todayISO();
-  const yaRegistrada = cu.estado==='pagada' || cu.estado==='abono' || cu.estado==='no-pago';
+  // Caso especial: la cuota quedó en "abono" un día anterior, pero todavía falta plata
+  // para completarla — hay que poder seguir cobrándosela, no queda "trabada".
+  const esAbonoConSaldoPendiente = cu.estado==='abono' && cu.fechaPago!==hoy && (p.cuotaDiaria - cu.montoPagado) > 0;
+  const yaRegistrada = !esAbonoConSaldoPendiente && (cu.estado==='pagada' || cu.estado==='abono' || cu.estado==='no-pago');
   const anteriorCompleta = idx===0 || p.cuotas[idx-1].estado!=='pendiente';
-  const bloqueadaPorOrden = !yaRegistrada && !anteriorCompleta;
+  const bloqueadaPorOrden = !yaRegistrada && !esAbonoConSaldoPendiente && !anteriorCompleta;
   const bloqueadaPorTiempo = yaRegistrada && cu.fechaPago !== hoy;
   const backdrop = document.createElement('div');
   backdrop.className='modal-backdrop';
