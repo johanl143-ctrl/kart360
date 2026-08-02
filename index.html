@@ -341,7 +341,7 @@
   <!-- ===================== FICHA CLIENTE ===================== -->
   <div class="screen" id="screen-ficha">
     <div class="topbar">
-      <div class="back-btn" onclick="volverAtras()">←</div>
+      <div class="back-btn" onclick="salirDeFicha()">←</div>
       <div><span class="eyebrow">Ficha de cliente</span></div>
     </div>
     <div class="content">
@@ -364,8 +364,8 @@
       <button class="btn btn-secondary" style="margin-top:6px;" onclick="state.pantallaAnterior='ficha'; abrirHistorialPagos()" id="btnVerHistorialPagos">👁️ Ver historial de pagos</button>
       <button class="btn btn-primary" style="margin-top:10px;" onclick="abrirNuevoPrestamo()" id="btnNuevoCreditoFicha">+ Nuevo crédito / renovar</button>
       <button class="btn btn-secondary" style="margin-top:10px;" onclick="state.pantallaAnterior='ficha'; editarCliente()" id="btnEditarClienteFicha">✏️ Editar cliente</button>
-      <button class="btn btn-danger hidden" style="margin-top:10px;" onclick="eliminarClienteActual()" id="btnEliminarCliente">🗑️ Eliminar cliente</button>
-      <p class="hidden" id="notaNoEliminable" style="font-size:11.5px; color:var(--muted); margin-top:8px; text-align:center;">Este cliente ya no se puede eliminar: su crédito pasó su primer día. Para modificarlo, usá "Editar" (requiere autorización del administrador).</p>
+      <button class="btn btn-danger hidden" style="margin-top:10px;" onclick="eliminarCreditoActual()" id="btnEliminarCliente">🗑️ ELIMINAR CRÉDITO</button>
+      <p class="hidden" id="notaNoEliminable" style="font-size:11.5px; color:var(--muted); margin-top:8px; text-align:center;">Este crédito ya no se puede eliminar: pasó su primer día. Para eliminar al cliente por completo, un administrador puede hacerlo desde el Panel de Administrador.</p>
     </div>
   </div>
 
@@ -582,6 +582,7 @@
         <div class="toggle-btn active" id="tabPanelDiarios" onclick="setTabPanel('diarios')">📅 Diarios</div>
         <div class="toggle-btn" id="tabPanelMensuales" onclick="setTabPanel('mensuales')">📆 Mensuales</div>
         <div class="toggle-btn" id="tabPanelClientes" onclick="setTabPanel('clientes')">👥 Clientes</div>
+        <div class="toggle-btn" id="tabPanelDepurados" onclick="setTabPanel('depurados')">🗑️ Depurados</div>
       </div>
 
       <div id="tabPanelContenido"></div>
@@ -713,6 +714,7 @@ async function cargarDatosDesdeSupabase(){
     totalPagar: Number(p.valor) + Number(p.valor) * Number(p.interes) / 100,
     depurado: !!p.depurado,
     capitalAlDepurar: p.capital_al_depurar,
+    fechaDepurado: p.fecha_depurado,
     cuotas: (p.cuotas || []).slice().sort((a,b)=>a.n-b.n).map(cu => ({
       id: cu.id,
       n: cu.n,
@@ -1540,6 +1542,7 @@ function renderPanelAdmin(){
   document.getElementById('tabPanelDiarios').classList.toggle('active', tabPanelActiva==='diarios');
   document.getElementById('tabPanelMensuales').classList.toggle('active', tabPanelActiva==='mensuales');
   document.getElementById('tabPanelClientes').classList.toggle('active', tabPanelActiva==='clientes');
+  document.getElementById('tabPanelDepurados').classList.toggle('active', tabPanelActiva==='depurados');
 
   const box = document.getElementById('tabPanelContenido');
   if(tabPanelActiva==='diarios'){
@@ -1593,6 +1596,32 @@ function renderPanelAdmin(){
       wrap.appendChild(row);
     });
     box.innerHTML = '';
+    box.appendChild(wrap);
+  } else if(tabPanelActiva==='depurados'){
+    const depurados = prestamosDeVendedor(vendedorActivoPanel).filter(p=>p.depurado);
+    if(depurados.length===0){
+      box.innerHTML = '<div class="empty-state" style="margin-top:14px;"><div class="glyph">✅</div>Sin clientes depurados.</div>';
+      return;
+    }
+    const totalDepurado = depurados.reduce((a,p)=>a+(p.capitalAlDepurar||0), 0);
+    const wrap = document.createElement('div');
+    wrap.className = 'card'; wrap.style.cssText='margin-top:14px; padding:0 16px;';
+    depurados.forEach(p=>{
+      const cliente = state.clientes.find(c=>c.id===p.clienteId);
+      const row = document.createElement('div');
+      row.className = 'list-row';
+      row.innerHTML = `
+        <div class="avatar dot-rojo">${escapeHtml(iniciales(cliente ? cliente.nombre : '?'))}</div>
+        <div class="info">
+          <div class="name">${escapeHtml(cliente ? cliente.nombre : 'Cliente eliminado')}</div>
+          <div class="meta">Depurado el ${p.fechaDepurado || '—'}</div>
+        </div>
+        <span class="num" style="font-weight:700; color:var(--brick);">${fmt(p.capitalAlDepurar || 0)}</span>`;
+      wrap.appendChild(row);
+    });
+    box.innerHTML = `<div class="card" style="margin-top:14px; background:var(--brick-tint); border:none;">
+        <div class="kv-row"><span class="k">Total depurado (sin interés)</span><span class="v num" style="color:var(--brick);">${fmt(totalDepurado)}</span></div>
+      </div>`;
     box.appendChild(wrap);
   }
 }
@@ -1999,7 +2028,10 @@ function renderClientes(){
   const box = document.getElementById('listaClientes');
   box.innerHTML = '';
   if(lista.length===0){
-    box.innerHTML = '<div class="empty-state"><div class="glyph">📇</div><div class="title">Sin resultados</div>Probá con otro filtro, o creá un cliente nuevo con el botón +.</div>';
+    const mensajeVacio = state.filtroCliente==='inactivo'
+      ? 'No hay clientes pendientes por renovar'
+      : 'No hay clientes nuevos o renovados hoy';
+    box.innerHTML = `<div class="empty-state"><div class="glyph">📇</div><div class="title" style="color:var(--muted);">${mensajeVacio}</div></div>`;
     return;
   }
   const wrap = document.createElement('div'); wrap.className='card'; wrap.style.padding='0 16px';
@@ -2158,6 +2190,9 @@ async function guardarCliente(){
    FICHA DE CLIENTE
    ========================================================= */
 function abrirFicha(clienteId){
+  if(pantallaActiva() !== 'ficha'){
+    state.pantallaAntesDeFicha = pantallaActiva();
+  }
   state.clienteActivoId = clienteId;
   const c = state.clientes.find(cl=>cl.id===clienteId);
   document.getElementById('fichaNombre').textContent = c.nombre;
@@ -2208,9 +2243,9 @@ function abrirFicha(clienteId){
     `;
   }
 
-  const puedeEliminar = state.usuarioRol==='administrador' && (!actual || actual.creadoEn === todayISO());
+  const puedeEliminar = !!actual && actual.creadoEn === todayISO();
   document.getElementById('btnEliminarCliente').classList.toggle('hidden', !puedeEliminar);
-  document.getElementById('notaNoEliminable').classList.toggle('hidden', puedeEliminar || state.usuarioRol!=='administrador');
+  document.getElementById('notaNoEliminable').classList.toggle('hidden', puedeEliminar || !actual);
   document.getElementById('btnVerHistorialPagos').classList.toggle('hidden', !actual || state.pantallaAnterior==='panel-admin');
   document.getElementById('btnEditarClienteFicha').classList.toggle('hidden', state.pantallaAnterior==='panel-admin');
   document.getElementById('btnPagoAdelantado').classList.toggle('hidden', !(actual && actual.creadoEn===todayISO() && !prestamoFinalizado(actual)));
@@ -2257,7 +2292,7 @@ function abrirPagoAdelantado(){
   const cu = proximaCuotaAccionable(actual);
   if(!cu){ toast('Este crédito ya no tiene cuotas pendientes'); return; }
   const idx = actual.cuotas.indexOf(cu);
-  abrirModalCuota(actual.id, idx);
+  abrirModalCuota(actual.id, idx, true);
 }
 
 function abrirHistorialPagos(){
@@ -2358,6 +2393,25 @@ function abrirFormularioEdicionPrestamo(actual){
   document.getElementById('npCuotaManual').value='';
   toggleManual();
   nav('nuevo-prestamo');
+}
+
+async function eliminarCreditoActual(){
+  const clienteId = state.clienteActivoId;
+  const c = state.clientes.find(cl=>cl.id===clienteId);
+  const actual = creditoActualDe(clienteId);
+  if(!actual){ toast('Este cliente no tiene un crédito para eliminar'); return; }
+  if(actual.creadoEn !== todayISO()){ toast('Este crédito ya no se puede eliminar — pasó su primer día'); return; }
+  if(!confirm(`¿Eliminar el crédito de ${c.nombre}? El cliente queda en el sistema, solo se borra este crédito puntual. Esta acción no se puede deshacer.`)) return;
+  state.prestamos = state.prestamos.filter(p=>p.id!==actual.id);
+  toast('Crédito eliminado');
+  nav(state.pantallaAntesDeFicha || 'clientes');
+  try{
+    const { error } = await supabaseClient.from('prestamos').delete().eq('id', actual.id);
+    if(error) throw error;
+  } catch(e){
+    console.error('No se pudo eliminar el crédito en Supabase', e);
+    toast('⚠️ No se pudo eliminar en la base — revisá tu conexión');
+  }
 }
 
 async function eliminarClienteActual(){
@@ -2495,6 +2549,10 @@ async function guardarPrestamo(){
 /* =========================================================
    DETALLE DE PRÉSTAMO — ficha de cuotas + WhatsApp + editar/eliminar
    ========================================================= */
+function salirDeFicha(){
+  nav(state.pantallaAntesDeFicha || 'clientes');
+}
+
 function pantallaActiva(){
   const el = document.querySelector('.screen.active');
   return el ? el.id.replace('screen-','') : 'inicio';
@@ -2607,8 +2665,6 @@ function renderCuotaGrid(p){
     chip.innerHTML = `<div class="n">${cu.n}</div>${montoTxt}`;
     chip.title = `Cuota ${cu.n} — ${cu.fecha}` + (cu.montoPagado>0 ? ` — ${cu.estado==='abono'?'Abonado':'Pagado'}: ${fmt(cu.montoPagado)}` : '');
 
-    const esFutura = cu.fecha > hoy;
-
     if(state.modoSeleccionCuotas){
       const enOrden = esSeleccionableEnOrden(p, idx);
       if(cu.estado!=='pendiente'){
@@ -2626,9 +2682,6 @@ function renderCuotaGrid(p){
           renderCuotaGrid(p);
         };
       }
-    } else if(esFutura && cu.estado==='pendiente'){
-      chip.classList.add('no-seleccionable');
-      chip.onclick = ()=> toast('Esta cuota todavía no vence, no se puede gestionar antes de la fecha');
     } else {
       chip.onclick = ()=> abrirModalCuota(p.id, idx);
     }
@@ -2681,7 +2734,7 @@ function enviarComprobanteWhatsapp(cliente, prestamo, cuota){
   window.open(url, '_blank');
 }
 
-function abrirModalCuota(prestamoId, idx){
+function abrirModalCuota(prestamoId, idx, esPagoAdelantado){
   const p = state.prestamos.find(pp=>pp.id===prestamoId);
   const cu = p.cuotas[idx];
   const cliente = state.clientes.find(cl=>cl.id===p.clienteId);
@@ -2714,6 +2767,15 @@ function abrirModalCuota(prestamoId, idx){
           Esta cuota ya tiene un pago registrado hoy. Para volver a cobrarla, primero tocá "Volver a pendiente".
         </div>
         <button class="btn btn-secondary" id="btnPendiente" style="margin-top:12px;">↺ Volver a pendiente</button>
+      ` : esPagoAdelantado ? `
+        <div class="btn-block-row">
+          <button class="btn btn-gold" id="btnAbono">🟡 Abono</button>
+        </div>
+        <div class="field" id="abonoField" style="margin-top:14px; display:none;">
+          <label>Monto del abono</label>
+          <input type="number" id="montoAbono">
+          <span class="kv-sub" style="margin-top:6px;">Si alcanza para más, el sobrante se aplica solo a las próximas cuotas pendientes (empezando por la más vieja).</span>
+        </div>
       ` : `
         <div class="btn-block-row">
           <button class="btn btn-primary" id="btnPagada">✅ Pagado</button>
@@ -2736,17 +2798,21 @@ function abrirModalCuota(prestamoId, idx){
   document.getElementById('app').appendChild(backdrop);
 
   if(!bloqueadaPorOrden && !bloqueadaPorTiempo && !yaRegistrada){
-    backdrop.querySelector('#btnPagada').onclick = async ()=>{
-      marcarPagoInterno(cu,'pagada',p.cuotaDiaria,todayISO());
-      await sincronizarCuota(cu);
-      if(cliente.telefono) preguntarEnviarComprobante(cliente, p, cu);
-      finCambioCuota(p, backdrop, true, 'Cobro registrado', 'cobrados');
-    };
-    backdrop.querySelector('#btnNoPago').onclick = async ()=>{
-      cu.estado='no-pago'; cu.montoPagado=0; cu.fechaPago=todayISO(); cu.loteId=uidReal();
-      await sincronizarCuota(cu);
-      finCambioCuota(p, backdrop, true, 'Cliente marcado como no pagó', 'cobrados');
-    };
+    if(backdrop.querySelector('#btnPagada')){
+      backdrop.querySelector('#btnPagada').onclick = async ()=>{
+        marcarPagoInterno(cu,'pagada',p.cuotaDiaria,todayISO());
+        await sincronizarCuota(cu);
+        if(cliente.telefono) preguntarEnviarComprobante(cliente, p, cu);
+        finCambioCuota(p, backdrop, true, 'Cobro registrado', 'cobrados');
+      };
+    }
+    if(backdrop.querySelector('#btnNoPago')){
+      backdrop.querySelector('#btnNoPago').onclick = async ()=>{
+        cu.estado='no-pago'; cu.montoPagado=0; cu.fechaPago=todayISO(); cu.loteId=uidReal();
+        await sincronizarCuota(cu);
+        finCambioCuota(p, backdrop, true, 'Cliente marcado como no pagó', 'cobrados');
+      };
+    }
     backdrop.querySelector('#btnAbono').onclick = async function segundoClick(){
       const campo = backdrop.querySelector('#abonoField');
       if(campo.style.display!=='block'){
