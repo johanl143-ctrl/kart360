@@ -208,7 +208,7 @@
   .nav-item .ic{ font-size:19px; }
   .nav-item.active{ color:var(--teal); }
 
-  .toast{ position:absolute; bottom:100px; left:50%; transform:translateX(-50%); background: var(--ink); color:#fff; padding:11px 18px; border-radius:10px; font-size:13.5px; z-index:80; opacity:0; transition: opacity .25s ease, transform .25s ease; pointer-events:none; font-weight:500; white-space:nowrap; max-width:90%; text-align:center; }
+  .toast{ position:absolute; bottom:100px; left:50%; transform:translateX(-50%); background: var(--ink); color:#fff; padding:11px 18px; border-radius:10px; font-size:13.5px; z-index:80; opacity:0; transition: opacity .25s ease, transform .25s ease; pointer-events:none; font-weight:500; white-space:normal; max-width:85%; width:max-content; text-align:center; line-height:1.4; }
   .toast.show{ opacity:1; transform:translateX(-50%) translateY(-6px); }
 
   .report-card{ display:flex; justify-content:space-between; align-items:center; padding:14px 4px; border-bottom:1px solid var(--line);}
@@ -301,7 +301,6 @@
     <div class="topbar" style="display:flex; align-items:center; justify-content:space-between;">
       <div><span class="eyebrow" id="inicioDate">Hoy</span></div>
       <div style="display:flex; align-items:center; gap:14px;">
-        <span id="btnCambiarPinInicio" onclick="abrirCambiarPinPropio()" title="Cambiar mi PIN" style="font-size:16px; cursor:pointer;">🔑</span>
         <span onclick="abrirOrganizarRuta()" style="font-size:13px; font-weight:600; color:var(--teal); cursor:pointer; white-space:nowrap;">🔀 Organizar ruta</span>
       </div>
     </div>
@@ -1942,7 +1941,6 @@ async function moverClienteOrganizarRuta(clienteId, direccion){
 
 function renderInicio(){
   document.getElementById('inicioDate').textContent = new Date().toLocaleDateString('es-UY', {weekday:'long', day:'numeric', month:'long'});
-  document.getElementById('btnCambiarPinInicio').classList.toggle('hidden', state.usuarioRol!=='administrador');
   const hoyPorCliente = cuotasDeHoyPorCliente();
   const idsConPendientes = Object.keys(hoyPorCliente).filter(id=>hoyPorCliente[id].pendientes.length>0);
   const idsConCobrados = Object.keys(hoyPorCliente).filter(id=>hoyPorCliente[id].cobradas.length>0);
