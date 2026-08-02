@@ -1,0 +1,2944 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Kart360 — Gestión de Cobranza</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Spectral:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#FFFFFF;
+    --paper-line: rgba(28,36,48,0.08);
+    --ink:#1C2430;
+    --ink-soft:#4B5563;
+    --teal:#1F5F5B;
+    --teal-dark:#163F3C;
+    --teal-tint: rgba(31,95,91,0.10);
+    --gold:#C6942F;
+    --gold-tint: rgba(198,148,47,0.14);
+    --brick:#B5482A;
+    --brick-tint: rgba(181,72,42,0.12);
+    --amber:#B8862B;
+    --amber-tint: rgba(184,134,43,0.16);
+    --green:#3F7D5C;
+    --green-tint: rgba(63,125,92,0.12);
+    --muted:#9A9284;
+    --line: rgba(28,36,48,0.14);
+    --card:#FFFFFF;
+    --radius: 14px;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{
+    margin:0; background:#E7E2D4; font-family:'Inter',sans-serif; color:var(--ink);
+    display:flex; justify-content:center; -webkit-font-smoothing:antialiased;
+  }
+  .num{font-family:'IBM Plex Mono',monospace; font-variant-numeric: tabular-nums;}
+  .app{
+    width:100%; max-width:430px; min-height:100vh; background:var(--paper); position:relative;
+    display:flex; flex-direction:column; box-shadow: 0 0 60px rgba(0,0,0,0.18);
+  }
+  .topbar{
+    padding: 22px 20px 14px 20px; display:flex; align-items:center; gap:12px;
+    border-bottom: 1px solid var(--line); background: var(--paper); position:sticky; top:0; z-index:20;
+  }
+  .topbar h1{ font-family:'Spectral', serif; font-weight:600; font-size:21px; margin:0; letter-spacing:-0.2px; flex:1; text-align:center; }
+  .back-btn{
+    width:34px;height:34px; display:flex;align-items:center;justify-content:center;
+    cursor:pointer; flex-shrink:0; font-size:22px; font-weight:800; color:var(--ink);
+  }
+  .back-btn:hover{ background: var(--teal-tint); }
+  .topbar .eyebrow{ font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); font-weight:600; display:block; margin-bottom:2px; text-align:center; }
+  .topbar > div:not(.back-btn){ flex:1; }
+  .screen{ display:none; flex-direction:column; flex:1; padding-bottom: 92px; }
+  .screen.active{ display:flex; }
+  .content{ padding:18px 20px 8px 20px; flex:1; }
+
+  #screen-login.active{ justify-content:center; }
+  .login-wrap{ padding: 40px 32px; text-align:center; }
+  .brand-mark{
+    width:64px;height:64px;border-radius:16px; background: var(--teal); color:#fff;
+    display:flex;align-items:center;justify-content:center; margin: 0 auto 18px auto;
+    font-family:'Spectral',serif; font-size:28px; font-weight:700; box-shadow: 0 4px 14px rgba(22,63,60,0.18);
+  }
+  .login-wrap h1{ font-family:'Spectral',serif; font-size:28px; margin: 0 0 4px 0; font-weight:700; }
+  .login-wrap p.sub{ color: var(--muted); font-size:12.5px; margin: 0 0 26px 0;}
+  .login-field-card{ background:var(--card); border:1px solid var(--line); border-radius:16px; padding:18px 16px 6px 16px; box-shadow: 0 2px 10px rgba(15,23,42,0.05); margin-bottom:16px; }
+  .field{ text-align:left; margin-bottom:16px; }
+  .field label{ display:block; font-size:12px; font-weight:600; color: var(--ink-soft); margin-bottom:6px; text-transform:uppercase; letter-spacing:.05em;}
+  input[type=text], input[type=password], input[type=number], input[type=tel], input[type=date], select, textarea{
+    width:100%; padding:12px 14px; border-radius:10px; border:1px solid var(--line); background: var(--card);
+    font-family:'Inter',sans-serif; font-size:15px; color:var(--ink); outline:none;
+  }
+  input:focus, select:focus, textarea:focus{ border-color:var(--teal); box-shadow: 0 0 0 3px var(--teal-tint); }
+  .pin-row{ display:flex; gap:10px; justify-content:center; margin-bottom: 24px;}
+  .pin-dot{ width:44px;height:52px;border-radius:10px;border:1px solid var(--line); background:var(--card); display:flex; align-items:center; justify-content:center; font-family:'IBM Plex Mono',monospace; font-size:22px; }
+  .pin-dot.filled{ border-color:var(--teal); background: var(--teal-tint); }
+  .keypad{ display:grid; grid-template-columns: repeat(3,1fr); gap:10px; max-width:260px; margin:0 auto;}
+  .key{ aspect-ratio:1; border-radius:50%; border:1px solid var(--line); background:var(--card); font-family:'IBM Plex Mono',monospace; font-size:20px; cursor:pointer; display:flex;align-items:center;justify-content:center; }
+  .key:active{ background:var(--teal-tint); }
+  .key.ghost{ border:none; background:transparent; color:var(--muted); font-family:'Inter',sans-serif; font-size:13px;}
+  .login-error{ color:var(--brick); font-size:13px; margin-top:10px; min-height:18px; font-weight:600;}
+  .demo-note{ margin-top:26px; font-size:12px; color:var(--muted); line-height:1.5;}
+
+  .btn{ display:inline-flex; align-items:center; justify-content:center; gap:8px; padding:13px 18px; border-radius:10px; border:none; cursor:pointer; font-family:'Inter',sans-serif; font-weight:600; font-size:14.5px; width:100%; }
+  .btn-primary{ background: var(--teal); color:#fff; box-shadow: 0 4px 12px rgba(22,63,60,0.18); }
+  .btn-primary:hover{ background: var(--teal-dark); }
+  .btn-secondary{ background: var(--card); color:var(--ink); border:1px solid var(--line); }
+  .btn-gold{ background: var(--gold); color:#fff; }
+  .btn-danger{ background: var(--brick); color:#fff; }
+  .btn-whatsapp{ background:#3F7D5C; color:#fff; }
+  .btn-sm{ width:auto; padding:8px 14px; font-size:13px; }
+  .btn-block-row{ display:flex; gap:10px; margin-top:10px;}
+  .btn-block-row .btn{ flex:1; }
+
+  .card{ background:var(--card); border-radius:var(--radius); border:1px solid var(--line); padding:16px; margin-bottom:14px; }
+  .section-title{ font-family:'Spectral',serif; font-weight:600; font-size:16px; margin:22px 0 10px 0; display:flex; align-items:center; justify-content:space-between; }
+  .section-title .see-all{ font-size:12px; font-weight:600; color:var(--teal); cursor:pointer; font-family:'Inter',sans-serif;}
+  .section-title .count-tag{ font-size:11px; font-weight:700; color:var(--muted); font-family:'IBM Plex Mono',monospace; }
+
+  .stat-grid{ display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
+  .stat-card{ background:var(--card); border-radius:var(--radius); border:1px solid var(--line); padding:14px; }
+  .stat-card .label{ font-size:10.5px; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); font-weight:600;}
+  .stat-card .value{ font-family:'IBM Plex Mono',monospace; font-size:20px; font-weight:600; margin-top:6px;}
+  .stat-card.wide{ grid-column: span 2; }
+  .stat-card.accent-teal{ background: var(--teal); color:#fff; }
+  .stat-card.accent-teal .label{ color: rgba(255,255,255,0.75);}
+  .stat-card.accent-gold{ background: var(--gold-tint); }
+  .stat-card.accent-brick{ background: var(--brick-tint); }
+  .stat-card.accent-green{ background: var(--green-tint); }
+
+  .alert-row{ display:flex; align-items:center; gap:10px; padding:12px; border-radius:12px; background: var(--brick-tint); border:1px solid rgba(181,72,42,0.25); margin-top:14px; font-size:13.5px; color: var(--brick); font-weight:600; }
+
+  .list-row{ display:flex; align-items:center; gap:12px; padding:13px 4px; border-bottom:1px solid var(--line); cursor:pointer; }
+  .list-row:last-child{ border-bottom:none; }
+  .list-row.dimmed{ opacity:0.55; }
+  .avatar{ width:40px;height:40px;border-radius:50%; background:var(--teal-tint); color:var(--teal-dark); display:flex;align-items:center;justify-content:center; font-family:'Spectral',serif; font-weight:700; font-size:15px; flex-shrink:0; border:2px solid transparent; }
+  .avatar.dot-verde{ border-color: var(--green); }
+  .avatar.dot-amarillo{ border-color: var(--amber); }
+  .avatar.dot-rojo{ border-color: var(--brick); }
+  .list-row .info{ flex:1; min-width:0; }
+  .list-row .name{ font-weight:600; font-size:14.5px; }
+  .list-row .meta{ font-size:12.5px; color:var(--muted); margin-top:2px; }
+  .pill{ font-size:11px; font-weight:700; padding:3px 9px; border-radius:20px; white-space:nowrap; text-transform:uppercase; letter-spacing:.03em; }
+  .pill-ok{ background:var(--green-tint); color:var(--green); }
+  .pill-warn{ background:var(--amber-tint); color:var(--amber); }
+  .pill-late{ background:var(--brick-tint); color:var(--brick); }
+  .pill-neutral{ background:var(--teal-tint); color:var(--teal-dark); }
+  .pill-muted{ background: rgba(154,146,132,0.18); color:var(--muted); }
+
+  .search-bar{ position:relative; margin-bottom: 10px;}
+  .search-bar input{ padding-left:36px; }
+  .search-bar .icon{ position:absolute; left:12px; top:50%; transform:translateY(-50%); color:var(--muted); }
+
+  .empty-state{ text-align:center; padding:50px 20px; color:var(--muted); }
+  .empty-state .glyph{ font-size:34px; margin-bottom:10px; }
+  .empty-state .title{ font-family:'Spectral',serif; font-size:17px; color:var(--ink); font-weight:600; margin-bottom:4px;}
+
+  .client-header{ text-align:center; padding: 6px 0 10px 0; }
+  .client-header .avatar{ width:68px; height:68px; font-size:24px; margin:0 auto 10px auto; }
+  .client-header h2{ font-family:'Spectral',serif; margin:0; font-size:28px; }
+  .client-header .sub{ color:var(--muted); font-size:13px; margin-top:2px; }
+
+  .kv-row{ display:flex; justify-content:space-between; align-items:flex-start; gap:12px; padding:9px 0; border-bottom:1px solid var(--line); font-size:13.5px; }
+  .kv-row:last-child{ border-bottom:none; }
+  .kv-row .k{ color:var(--muted); flex:1 1 auto; min-width:0; line-height:1.4; }
+  .kv-row .v{ font-weight:600; flex:0 0 auto; white-space:nowrap; text-align:right; }
+  .kv-sub{ display:block; font-size:11px; color:var(--muted); font-weight:400; margin-top:2px; }
+
+  /* Caja — interfaz más compacta */
+  #screen-caja .content{ padding-top:12px; }
+  #screen-caja .section-title{ margin:14px 0 6px 0; font-size:14.5px; }
+  #screen-caja .section-title:first-child{ margin-top:0; }
+  #screen-caja .card{ padding:10px 14px; margin-bottom:10px; }
+  #screen-caja .kv-row{ padding:6px 0; font-size:13px; }
+  #screen-caja p{ margin:4px 0 10px 0; line-height:1.35; }
+  #screen-caja .btn{ padding:10px 16px; font-size:13.5px; }
+  #screen-caja .btn + .btn{ margin-top:8px; }
+
+  /* Reportes — interfaz más compacta */
+  #screen-reportes .content{ padding-top:12px; }
+  #screen-reportes .section-title{ margin:14px 0 6px 0; font-size:14.5px; }
+  #screen-reportes .section-title:first-child{ margin-top:0; }
+  #screen-reportes .card{ padding:10px 14px; margin-bottom:10px; }
+  #screen-reportes .kv-row{ padding:6px 0; font-size:13px; }
+  #screen-reportes p{ margin:4px 0 10px 0; line-height:1.35; font-size:11px; }
+  #screen-reportes .btn{ padding:9px 14px; font-size:13px; }
+  #screen-reportes .list-row{ padding:9px 4px; }
+  #screen-reportes .avatar{ width:32px; height:32px; font-size:12px; }
+
+  .cuota-grid{ display:grid; grid-template-columns: repeat(6, 1fr); gap:7px; margin:14px 0 4px 0; }
+  .cuota-chip{ aspect-ratio:1; border-radius:8px; border:1.5px solid var(--line); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1px; font-family:'IBM Plex Mono',monospace; font-size:11px; font-weight:600; color: var(--ink-soft); background: var(--card); cursor:pointer; position:relative; padding:2px; }
+  .cuota-chip .n{ font-size:12px; line-height:1; }
+  .cuota-chip .monto{ font-size:8.5px; font-weight:500; opacity:0.85; line-height:1; }
+  .cuota-chip.pagada{ background:var(--green); border-color:var(--green); color:#fff; }
+  .cuota-chip.abono{ background: linear-gradient(135deg, var(--green) 50%, var(--card) 50%); border-color:var(--green); color:var(--ink); }
+  .cuota-chip.no-pago{ background:var(--brick); border-color:var(--brick); color:#fff; }
+  .cuota-chip.vencida{ border-color:var(--brick); color:var(--brick); background:var(--brick-tint); }
+  .cuota-chip.hoy{ box-shadow: 0 0 0 2px var(--gold); }
+  .cuota-chip.seleccionada{ box-shadow: 0 0 0 2px var(--teal); background: var(--teal-tint); border-color: var(--teal); }
+  .cuota-chip.no-seleccionable{ opacity:0.4; cursor:not-allowed; }
+  .legend{ display:flex; gap:12px; flex-wrap:wrap; margin-top:12px; font-size:11px; color:var(--muted); }
+  .legend span{ display:inline-flex; align-items:center; gap:5px; }
+  .legend i{ width:10px;height:10px; border-radius:3px; display:inline-block; }
+
+  .modal-backdrop{ position:absolute; inset:0; background: rgba(28,36,48,0.45); z-index:50; display:flex; align-items:flex-end; justify-content:center; }
+  .modal-sheet{ background:var(--paper); width:100%; max-width:430px; border-radius:20px 20px 0 0; padding:22px 20px 26px 20px; max-height:85vh; overflow-y:auto; }
+  .modal-sheet h3{ font-family:'Spectral',serif; margin:0 0 4px 0; font-size:18px;}
+  .modal-sheet .sub{ color:var(--muted); font-size:13px; margin-bottom:16px;}
+  .hidden{ display:none !important; }
+
+  .calc-box{ background: var(--gold-tint); border:1px solid rgba(198,148,47,0.3); border-radius:12px; padding:14px; margin: 14px 0; font-size:13.5px; }
+  .calc-box .line{ display:flex; justify-content:space-between; padding:3px 0; }
+  .calc-box .line.total{ font-weight:700; border-top:1px dashed rgba(198,148,47,0.4); margin-top:6px; padding-top:8px; }
+  .calc-box .line.reemplazada{ opacity:0.4; text-decoration: line-through; font-weight:400; }
+
+  .toggle-row{ display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap; }
+  .toggle-btn{ flex:1; padding:10px; text-align:center; border-radius:10px; border:1px solid var(--line); background:var(--card); font-size:12.5px; font-weight:600; cursor:pointer; color:var(--ink-soft); min-width:70px; }
+  .toggle-btn.active{ background:var(--teal); border-color:var(--teal); color:#fff; }
+
+  .bottom-nav{ position:absolute; bottom:0; left:0; right:0; height:76px; background: var(--card); border-top:1px solid var(--line); display:flex; z-index:30; padding-bottom: env(safe-area-inset-bottom); }
+  .nav-item{ flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; color:var(--muted); cursor:pointer; font-size:11px; font-weight:600; }
+  .nav-item .ic{ font-size:19px; }
+  .nav-item.active{ color:var(--teal); }
+
+  .toast{ position:absolute; bottom:100px; left:50%; transform:translateX(-50%); background: var(--ink); color:#fff; padding:11px 18px; border-radius:10px; font-size:13.5px; z-index:80; opacity:0; transition: opacity .25s ease, transform .25s ease; pointer-events:none; font-weight:500; white-space:nowrap; max-width:90%; text-align:center; }
+  .toast.show{ opacity:1; transform:translateX(-50%) translateY(-6px); }
+
+  .report-card{ display:flex; justify-content:space-between; align-items:center; padding:14px 4px; border-bottom:1px solid var(--line);}
+  .report-card:last-child{ border-bottom:none; }
+
+  .mov-row{ display:flex; justify-content:space-between; align-items:center; padding:11px 4px; border-bottom:1px solid var(--line); font-size:13px;}
+  .mov-row:last-child{ border-bottom:none; }
+  .mov-row .tag{ font-size:10.5px; font-weight:700; text-transform:uppercase; padding:2px 8px; border-radius:20px; margin-right:6px; }
+  .mov-row .tag.ingreso{ background:var(--green-tint); color:var(--green); }
+  .mov-row .tag.egreso{ background:var(--brick-tint); color:var(--brick); }
+  .mov-row .mov-actions{ display:flex; align-items:center; gap:10px; }
+  .icon-btn{ background:none; border:none; cursor:pointer; font-size:14px; padding:2px; color:var(--muted); }
+  .orden-num{ font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--muted); width:18px; text-align:center; flex-shrink:0; }
+  .orden-arrows{ display:flex; flex-direction:column; gap:0; flex-shrink:0; }
+  .orden-arrows .icon-btn{ font-size:15px; line-height:1; padding:1px 4px; }
+  .orden-arrows .icon-btn:disabled{ opacity:0.25; cursor:default; }
+  .icon-btn:hover{ color:var(--ink); }
+
+  .file-input-label{ display:block; padding:13px 18px; border-radius:10px; border:1px dashed var(--line); text-align:center; font-size:13.5px; color:var(--ink-soft); cursor:pointer; background:var(--card);}
+
+  ::selection{ background: var(--gold-tint); }
+  a{ color:var(--teal); }
+  @media (prefers-reduced-motion: reduce){ *{ transition:none !important; } }
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script>
+  // ---- Conexión real a Supabase (Kart360, proyecto de producción) ----
+  const SUPABASE_URL = 'https://cihnsjstmzoomnezlpyu.supabase.co';
+  const SUPABASE_KEY = 'sb_publishable_tn3SbB2CtmE2WnNxCRxGHw_zQSxUkkL';
+  // Teléfono de WhatsApp del administrador, para cuando alguien olvida su PIN.
+  // Poné acá el número (con o sin espacios/guiones, la app lo limpia sola).
+  // Dejalo vacío ('') si todavía no lo querés activar.
+  const TELEFONO_ADMINISTRADOR = '093323233';
+  const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+</script>
+</head>
+<body>
+<div class="app" id="app">
+
+  <!-- ===================== LOGIN ===================== -->
+  <div class="screen active" id="screen-login">
+    <div class="login-wrap">
+      <div class="brand-mark">K</div>
+      <h1>Kart360</h1>
+      <p class="sub">Gestión inteligente para tu negocio</p>
+      <div id="pin-stage">
+        <div id="loginNormal">
+          <div class="toggle-row" style="margin-bottom:14px;">
+            <div class="toggle-btn active" id="rolLoginVendedor" onclick="setRolLogin('vendedor')">👤 Vendedor</div>
+            <div class="toggle-btn" id="rolLoginAdmin" onclick="setRolLogin('administrador')">🔑 Administrador</div>
+          </div>
+          <div class="login-field-card">
+            <div class="field" style="text-align:center;">
+              <label>Código de ingreso</label>
+              <input type="password" id="codigoIngreso" placeholder="Código de 6 dígitos" inputmode="numeric" maxlength="6" autocomplete="off" style="text-align:center;">
+            </div>
+          </div>
+          <button class="btn btn-primary" onclick="intentarIngresar()">Ingresar</button>
+          <div class="login-error" id="loginError"></div>
+          <div style="text-align:center; margin-top:14px;">
+            <span style="color:var(--teal); font-size:13px; font-weight:600; cursor:pointer;" onclick="abrirOlvidoPin()">¿Olvidaste tu código?</span>
+          </div>
+        </div>
+        <div id="loginBloqueadoSecundario" class="hidden">
+          <div class="empty-state" style="padding:10px 0 20px 0;">
+            <div class="glyph">🔒</div>
+            <div class="title">Dispositivo cerrado</div>
+            Este equipo cerró sesión. Pedile autorización al administrador para volver a entrar.
+          </div>
+          <div id="bloqueSolicitarAutorizacion">
+            <button class="btn btn-primary" onclick="pedirAutorizacionRemota()">📨 Pedir autorización al administrador</button>
+          </div>
+          <div id="bloqueEsperandoAutorizacion" class="hidden">
+            <div class="empty-state" style="padding:10px 0;">
+              <div class="glyph">⏳</div>
+              <div class="title">Esperando autorización...</div>
+              El administrador tiene que aprobar esto desde su propia app. Esta pantalla se destraba sola apenas lo haga.
+            </div>
+            <button class="btn btn-secondary" onclick="cancelarSolicitudAutorizacion()">Cancelar solicitud</button>
+          </div>
+          <div class="login-error" id="loginBloqueadoError"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== INICIO (pendientes / cobrados, en carpetas) ===================== -->
+  <div class="screen" id="screen-inicio">
+    <div class="topbar">
+      <div><span class="eyebrow" id="inicioDate">Hoy</span></div>
+    </div>
+    <div class="content">
+      <div class="toggle-row">
+        <div class="toggle-btn active" id="tabPendientes" onclick="setTabInicio('pendientes')">📋 Pendientes <span id="tabCountPendientes">(0)</span></div>
+        <div class="toggle-btn" id="tabCobrados" onclick="setTabInicio('cobrados')">✅ Cobrados <span id="tabCountCobrados">(0)</span></div>
+      </div>
+      <div id="folderPendientes">
+        <div class="card" id="listaPendientesHoy" style="padding:0 16px;"></div>
+      </div>
+      <div id="folderCobrados" class="hidden">
+        <div class="card" id="listaCobradosHoy" style="padding:0 16px;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== CLIENTES (lista) ===================== -->
+  <div class="screen" id="screen-clientes">
+    <div class="topbar">
+      <div><span class="eyebrow" id="clientesCount">0 clientes</span></div>
+    </div>
+    <div class="content">
+      <div class="search-bar">
+        <span class="icon">🔎</span>
+        <input type="text" id="buscadorClientes" placeholder="Buscar por nombre o teléfono..." oninput="renderClientes()">
+      </div>
+      <div class="toggle-row">
+        <div class="toggle-btn active" data-filtro="todos" onclick="setFiltroCliente('todos')">ACTIVOS</div>
+        <div class="toggle-btn" data-filtro="nuevos" onclick="setFiltroCliente('nuevos')">RENOVADOS NUEVOS</div>
+        <div class="toggle-btn" data-filtro="inactivo" onclick="setFiltroCliente('inactivo')">TERMINADOS</div>
+      </div>
+      <div id="bloqueRuta" class="card" style="padding:12px 14px; margin-bottom:10px;">
+        <div style="font-weight:600; font-size:13px; color:var(--teal);">Ordenar ruta — usá las flechas para mover a cada cliente</div>
+      </div>
+      <div id="listaClientes"></div>
+    </div>
+    <button class="fab" id="fabNuevoCliente" onclick="abrirNuevoCliente()" title="Nuevo cliente" style="position:absolute; right:20px; bottom:92px; z-index:25; width:52px;height:52px;border-radius:50%; background:var(--gold); color:#fff; display:flex;align-items:center;justify-content:center; font-size:26px; border:none; cursor:pointer; box-shadow: 0 10px 22px rgba(198,148,47,0.45);">+</button>
+  </div>
+
+  <!-- ===================== FICHA CLIENTE ===================== -->
+  <div class="screen" id="screen-ficha">
+    <div class="topbar">
+      <div class="back-btn" onclick="volverAtras()">←</div>
+      <div><span class="eyebrow">Ficha de cliente</span></div>
+    </div>
+    <div class="content">
+      <div class="client-header">
+        <h2 id="fichaNombre">—</h2>
+        <div class="sub" id="fichaTelefono">—</div>
+        <div style="margin-top:8px;" id="fichaPillEstado"></div>
+      </div>
+      <div class="card">
+        <div class="kv-row"><span class="k">Documento</span><span class="v" id="fichaDoc">—</span></div>
+        <div class="kv-row"><span class="k">Dirección</span><span class="v" id="fichaDireccion">—</span></div>
+      </div>
+
+      <div class="card">
+        <div class="section-title" style="margin:0 0 4px 0;">Crédito actual</div>
+        <div id="fichaCreditoActual"></div>
+      </div>
+
+      <button class="btn btn-gold hidden" style="margin-top:6px;" onclick="abrirPagoAdelantado()" id="btnPagoAdelantado">💰 Registrar pago adelantado</button>
+      <button class="btn btn-secondary" style="margin-top:6px;" onclick="state.pantallaAnterior='ficha'; abrirHistorialPagos()" id="btnVerHistorialPagos">👁️ Ver historial de pagos</button>
+      <button class="btn btn-primary" style="margin-top:10px;" onclick="abrirNuevoPrestamo()" id="btnNuevoCreditoFicha">+ Nuevo crédito / renovar</button>
+      <button class="btn btn-secondary" style="margin-top:10px;" onclick="state.pantallaAnterior='ficha'; abrirMenuEditarCliente()" id="btnEditarClienteFicha">✏️ Editar cliente</button>
+      <button class="btn btn-danger hidden" style="margin-top:10px;" onclick="eliminarClienteActual()" id="btnEliminarCliente">🗑️ Eliminar cliente</button>
+      <p class="hidden" id="notaNoEliminable" style="font-size:11.5px; color:var(--muted); margin-top:8px; text-align:center;">Este cliente ya no se puede eliminar: su crédito pasó su primer día. Para modificarlo, usá "Editar" (requiere autorización del administrador).</p>
+    </div>
+  </div>
+
+  <!-- ===================== HISTORIAL DE PAGOS (informativo) ===================== -->
+  <div class="screen" id="screen-historial-pagos">
+    <div class="topbar">
+      <div class="back-btn" onclick="volverAtras()">←</div>
+      <div><span class="eyebrow" id="histPagosCliente">Cliente</span><h1>Historial de pagos</h1></div>
+    </div>
+    <div class="content">
+      <div class="card">
+        <div class="kv-row"><span class="k">Valor del crédito</span><span class="v num" id="histPagosValor">—</span></div>
+        <div class="kv-row"><span class="k">Cuota diaria</span><span class="v num" id="histPagosCuota">—</span></div>
+        <div class="kv-row"><span class="k">Fecha de inicio</span><span class="v" id="histPagosInicio">—</span></div>
+      </div>
+      <div class="section-title" style="margin-top:14px;">Detalle día por día</div>
+      <div class="card" id="histPagosLista" style="padding:0 16px;"></div>
+    </div>
+  </div>
+
+  <!-- ===================== NUEVO CLIENTE ===================== -->
+  <div class="screen" id="screen-nuevo-cliente">
+    <div class="topbar">
+      <div class="back-btn" onclick="volverAtras()">←</div>
+      <div><span class="eyebrow">Alta</span><h1 id="tituloClienteForm">Nuevo cliente</h1></div>
+    </div>
+    <div class="content">
+      <div class="section-title" style="margin-top:0;">Datos personales</div>
+      <div class="field"><label>Nombre del cliente</label><input type="text" id="ncNombre" placeholder="Ej. Rosana Techera"></div>
+      <div class="field"><label>Teléfono (para WhatsApp)</label><input type="tel" id="ncTelefono" placeholder="099 123 456"></div>
+      <div class="field"><label>Cédula / documento</label><input type="text" id="ncDocumento" placeholder="4.123.456-7"></div>
+      <div class="field"><label>Dirección</label><input type="text" id="ncDireccion" placeholder="Barrio, calle y número"></div>
+
+      <div id="bloqueCreditoInicial">
+        <div class="section-title">Datos del crédito</div>
+        <div class="field"><label>Valor del producto</label><input type="number" id="ncValor" placeholder="0" oninput="recalcularNC()"></div>
+        <div class="field"><label>Porcentaje de interés (%)</label><input type="number" id="ncInteres" placeholder="20" oninput="recalcularNC()"></div>
+        <div class="field"><label>Cantidad de cuotas (hasta 30)</label><input type="number" id="ncCuotas" placeholder="30" max="30" oninput="recalcularNC()"></div>
+        <div class="field"><label>Fecha de inicio del crédito</label><input type="date" id="ncFecha"></div>
+        <div class="calc-box" id="ncCalcBox">
+          <div class="line"><span>Total a pagar</span><span class="num" id="ncCalcTotal">$0</span></div>
+          <div class="line total"><span>Cuota diaria (auto)</span><span class="num" id="ncCalcCuota">$0</span></div>
+        </div>
+      </div>
+
+      <button class="btn btn-primary" onclick="guardarCliente()">Guardar cliente</button>
+    </div>
+  </div>
+
+  <!-- ===================== NUEVO / EDITAR PRÉSTAMO ===================== -->
+  <div class="screen" id="screen-nuevo-prestamo">
+    <div class="topbar">
+      <div class="back-btn" onclick="volverAtras()">←</div>
+      <div><span class="eyebrow" id="npCliente">Cliente</span><h1 id="npTitulo">Nuevo crédito</h1></div>
+    </div>
+    <div class="content">
+      <div class="field"><label>Valor del producto</label><input type="number" id="npValor" placeholder="0" oninput="recalcular()"></div>
+      <div class="field"><label>Interés / recargo (%)</label><input type="number" id="npInteres" placeholder="20" oninput="recalcular()"></div>
+      <div class="field"><label>Cantidad de cuotas (máx. 30)</label><input type="number" id="npCuotas" placeholder="30" max="30" oninput="recalcular()"></div>
+      <div class="field"><label>Fecha de inicio</label><input type="date" id="npFecha"></div>
+      <div class="calc-box" id="calcBox">
+        <div class="line"><span>Capital</span><span class="num" id="calcCapital">$0</span></div>
+        <div class="line"><span>Interés</span><span class="num" id="calcInteres">$0</span></div>
+        <div class="line total"><span>Total a pagar</span><span class="num" id="calcTotal">$0</span></div>
+        <div class="line total" id="calcCuotaRow"><span id="calcCuotaLabel">Cuota diaria (auto)</span><span class="num" id="calcCuota">$0</span></div>
+      </div>
+      <div class="field">
+        <label><input type="checkbox" id="npManualCheck" onchange="toggleManual()" style="width:auto; margin-right:6px;">Sobreescribir el valor de cuota manualmente</label>
+      </div>
+      <div class="field hidden" id="npManualField">
+        <label>Valor de cuota manual <span style="color:var(--gold); font-weight:700;">(este es el que se va a usar)</span></label>
+        <input type="number" id="npCuotaManual" placeholder="0" oninput="recalcular()" style="border-color:var(--gold); box-shadow:0 0 0 2px var(--gold-tint);">
+      </div>
+      <button class="btn btn-primary" onclick="guardarPrestamo()" id="npBtnGuardar">Crear crédito</button>
+    </div>
+  </div>
+
+  <!-- ===================== DETALLE PRÉSTAMO ===================== -->
+  <div class="screen" id="screen-detalle-prestamo">
+    <div class="topbar">
+      <div class="back-btn" onclick="volverAtras()">←</div>
+      <div><span class="eyebrow" id="detCliente">Cliente</span><h1>Detalle del crédito</h1></div>
+    </div>
+    <div class="content">
+      <div class="card">
+        <div class="kv-row"><span class="k">Capital</span><span class="v num" id="detCapital">—</span></div>
+        <div class="kv-row"><span class="k">Total a pagar</span><span class="v num" id="detTotal">—</span></div>
+        <div class="kv-row"><span class="k">Cuota diaria</span><span class="v num" id="detCuota">—</span></div>
+        <div class="kv-row"><span class="k">Cuotas pagas</span><span class="v" id="detPagas">—</span></div>
+        <div class="kv-row"><span class="k">Saldo restante</span><span class="v num" id="detSaldo">—</span></div>
+        <div class="kv-row"><span class="k">Estado</span><span class="v" id="detEstado">—</span></div>
+      </div>
+
+      <div class="section-title">Ficha de cuotas <span class="see-all" id="btnToggleSeleccion" onclick="toggleModoSeleccion()">☑️ Marcar varias</span></div>
+      <div class="cuota-grid" id="cuotaGrid"></div>
+      <div id="barraSeleccion" class="hidden" style="display:flex; gap:10px; margin-top:12px;">
+        <button class="btn btn-primary" onclick="confirmarSeleccionMultiple()" id="btnConfirmarSeleccion">Marcar 0 como pagadas</button>
+        <button class="btn btn-secondary btn-sm" onclick="toggleModoSeleccion()">Cancelar</button>
+      </div>
+      <div class="legend" id="legendCuotas">
+        <span><i style="background:var(--card); border:1.5px solid var(--line);"></i>Pendiente</span>
+        <span><i style="background:var(--card); box-shadow:0 0 0 2px var(--gold);"></i>Vence hoy</span>
+        <span><i style="background:var(--green);"></i>Cobrada</span>
+        <span><i style="background:linear-gradient(135deg,var(--green) 50%, var(--card) 50%); border:1.5px solid var(--green);"></i>Abono</span>
+        <span><i style="background:var(--brick-tint); border:1.5px solid var(--brick);"></i>Atrasada</span>
+        <span><i style="background:var(--brick);"></i>No pagó</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== CAJA (resumen del día) ===================== -->
+  <div class="screen" id="screen-caja">
+    <div class="topbar" style="padding:12px 20px 10px 20px;">
+      <div style="display:flex; align-items:baseline; gap:8px;">
+        <span id="cajaDate" style="font-size:11px; color:var(--muted); font-weight:600;">Hoy</span>
+      </div>
+    </div>
+    <div class="content">
+      <div class="section-title" style="margin-top:0;">Ingresos y egresos</div>
+      <div class="card">
+        <div class="kv-row"><span class="k">Saldo del día anterior</span><span class="v num" id="cajaSaldoAnterior">$0</span></div>
+        <div class="kv-row"><span class="k">Recaudo del día</span><span class="v num" id="cajaRecaudo">$0</span></div>
+        <div class="kv-row"><span class="k">Ventas del día</span><span class="v num" id="cajaVentas">$0</span></div>
+        <div class="kv-row"><span class="k">Egresos del día</span><span class="v num" id="cajaEgresos">$0</span></div>
+        <div class="kv-row"><span class="k">Ingresos adicionales</span><span class="v num" id="cajaIngresosAdic">$0</span></div>
+        <div class="kv-row"><span class="k">Saldo en caja<span class="kv-sub">Lo que hay en caja real</span></span><span class="v num" id="cajaSaldoReal">$0</span></div>
+      </div>
+
+      <div class="card" style="margin-top:14px;">
+        <div class="kv-row"><span class="k">✅ Clientes cobrados</span><span class="v" id="resCobrados">0</span></div>
+        <div class="kv-row"><span class="k">⏳ Clientes no cobrados</span><span class="v" id="resNoCobrados">0</span></div>
+        <div class="kv-row"><span class="k">🆕 Créditos nuevos hoy</span><span class="v" id="resNuevos">0</span></div>
+        <div class="kv-row"><span class="k">🔁 Créditos renovados hoy</span><span class="v" id="resRenovados">0</span></div>
+        <div class="kv-row"><span class="k">👥 Total de clientes</span><span class="v" id="resTotalClientes">0</span></div>
+      </div>
+
+      <button class="btn btn-primary" style="margin-top:8px;" onclick="nav('movimientos')">📋 Ver y registrar movimientos</button>
+      <button class="btn btn-danger" style="margin-top:8px;" onclick="cerrarSesion()">Cerrar caja</button>
+    </div>
+  </div>
+
+  <!-- ===================== MOVIMIENTOS (detalle, fuera de Reportes) ===================== -->
+  <div class="screen" id="screen-movimientos">
+    <div class="topbar">
+      <div class="back-btn" onclick="nav('caja')">←</div>
+    </div>
+    <div class="content">
+      <div class="card">
+        <div class="toggle-row">
+          <div class="toggle-btn" id="tipoEgreso" onclick="setTipoMov('egreso')">➖ Egreso</div>
+          <div class="toggle-btn active" id="tipoIngreso" onclick="setTipoMov('ingreso')">➕ Ingreso</div>
+        </div>
+        <div class="field"><label>Concepto <span style="color:var(--brick);">*</span></label><input type="text" id="movConcepto" placeholder="Ej. Pago de alquiler de oficina" required></div>
+        <div class="field"><label>Monto</label><input type="number" id="movMonto" placeholder="0"></div>
+        <button class="btn btn-primary" onclick="guardarMovimiento()" id="btnGuardarMov">Registrar movimiento</button>
+      </div>
+      <div class="section-title" style="justify-content:center;">Detalle de movimientos</div>
+      <div class="card" id="listaMovimientos" style="padding:0 16px;"></div>
+    </div>
+  </div>
+
+  <!-- ===================== REPORTES (financieros) ===================== -->
+  <div class="screen" id="screen-reportes">
+    <div class="topbar" style="padding:12px 20px 10px 20px;">
+      <div style="display:flex; align-items:baseline; gap:8px;">
+        <span id="reportesDate" style="font-size:11px; color:var(--muted); font-weight:600;">Cierre y balance</span>
+      </div>
+    </div>
+    <div class="content">
+      <div id="reportesBloqueado" class="hidden">
+        <div class="empty-state">
+          <div class="glyph">🔒</div>
+          <div class="title">Solo para administradores</div>
+        </div>
+      </div>
+      <div id="reportesContenido">
+        <button class="btn btn-primary" onclick="abrirPanelAdmin()">PANEL DE ADMINISTRADOR</button>
+
+        <div id="ajustesSeccionCuenta">
+          <div class="section-title" style="margin-top:24px;">Seguridad y copias de respaldo</div>
+          <div class="card" style="padding:0 16px;">
+            <div class="list-row" onclick="descargarBackup()">
+              <div class="info"><div class="name">⤓ Descargar copia de seguridad</div><div class="meta">Archivo JSON</div></div>
+              <span style="color:var(--muted);">›</span>
+            </div>
+            <div class="list-row" onclick="abrirHistorialRespaldos()">
+              <div class="info"><div class="name">🗄️ Copias automáticas</div><div class="meta">Se guarda sola cada vez que se cierra caja</div></div>
+              <span style="color:var(--muted);">›</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== PANEL DE ADMINISTRADOR (por cobrador) ===================== -->
+  <div class="screen" id="screen-panel-admin">
+    <div class="topbar" style="display:flex; align-items:center; gap:10px;">
+      <span onclick="nav('reportes')" style="font-size:20px; cursor:pointer; color:var(--ink-soft);">←</span>
+      <div style="flex:1;"></div>
+      <span onclick="abrirSolicitudesDesbloqueo()" style="font-size:18px; cursor:pointer; position:relative;">
+        🔔
+        <span id="badgePanelSolicitudes" class="pill pill-late hidden" style="position:absolute; top:-8px; right:-10px; padding:1px 5px; font-size:9px;">0</span>
+      </span>
+    </div>
+    <div class="content">
+      <div style="display:flex; align-items:flex-start; gap:8px;">
+        <div class="toggle-row" id="selectorVendedorPanel" style="flex-wrap:wrap; flex:1;"></div>
+        <span onclick="abrirMenuCobradoresPanel()" style="font-size:20px; cursor:pointer; border:1.5px solid var(--teal); color:var(--teal); border-radius:10px; width:38px; height:38px; display:flex; align-items:center; justify-content:center; flex-shrink:0;">➕</span>
+      </div>
+
+      <div class="toggle-row">
+        <div class="toggle-btn active" id="tabPanelDiarios" onclick="setTabPanel('diarios')">📅 Diarios</div>
+        <div class="toggle-btn" id="tabPanelMensuales" onclick="setTabPanel('mensuales')">📆 Mensuales</div>
+        <div class="toggle-btn" id="tabPanelClientes" onclick="setTabPanel('clientes')">👥 Clientes</div>
+      </div>
+
+      <div id="tabPanelContenido"></div>
+    </div>
+  </div>
+
+  <!-- ===================== AJUSTES ===================== -->
+
+  <!-- ===================== BOTTOM NAV ===================== -->
+  <div class="bottom-nav hidden" id="bottomNav">
+    <div class="nav-item" data-screen="inicio" onclick="nav('inicio')"><span class="ic">🏠</span>Inicio</div>
+    <div class="nav-item" data-screen="clientes" onclick="nav('clientes')"><span class="ic">👥</span>Clientes</div>
+    <div class="nav-item" data-screen="caja" onclick="nav('caja')"><span class="ic">💵</span>Caja</div>
+    <div class="nav-item" data-screen="reportes" onclick="nav('reportes')"><span class="ic">📊</span>Reportes</div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+</div>
+
+<script>
+/* =========================================================
+   ESTADO (en memoria — demo; usar Ajustes > Backup para exportar/restaurar)
+   ========================================================= */
+let state = {
+  clientes: [],
+  prestamos: [],
+  movimientos: [],
+  filtroCliente: 'todos',
+  pantallaAnterior: 'clientes',
+  clienteActivoId: null,
+  prestamoActivoId: null,
+  editandoCliente: false,
+  tipoMovNuevo: 'ingreso',
+  inicioTab: 'pendientes',
+  editandoPrestamoId: null,
+  editandoMovId: null,
+  modoSeleccionCuotas: false,
+  cuotasSeleccionadas: [],
+  usuarioRol: 'administrador',
+  modoRuta: 'manual',
+  requiereAdminParaIngresar: false
+};
+
+function fechaConDia(iso){
+  if(!iso) return '';
+  const [y,m,d] = iso.split('-').map(Number);
+  const fecha = new Date(y, m-1, d);
+  const dia = fecha.toLocaleDateString('es-UY', { weekday:'long' });
+  const diaCapitalizado = dia.charAt(0).toUpperCase() + dia.slice(1);
+  return `${diaCapitalizado}, ${iso}`;
+}
+
+function todayISO(){
+  const d = new Date();
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth()+1).padStart(2,'0');
+  const dd = String(d.getDate()).padStart(2,'0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+function esPinValido(pin){ return /^\d{6}$/.test(pin); }
+
+function escapeHtml(texto){
+  const div = document.createElement('div');
+  div.textContent = String(texto==null ? '' : texto);
+  return div.innerHTML;
+}
+function addDays(iso, n){
+  const [y,m,d] = iso.split('-').map(Number);
+  const dt = new Date(y, m-1, d);
+  dt.setDate(dt.getDate()+n);
+  const yyyy = dt.getFullYear();
+  const mm = String(dt.getMonth()+1).padStart(2,'0');
+  const dd = String(dt.getDate()).padStart(2,'0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+function diasEntre(fechaIni, fechaFin){
+  const a = new Date(fechaIni+'T00:00:00');
+  const b = new Date(fechaFin+'T00:00:00');
+  return Math.round((b-a)/86400000);
+}
+function fmt(n){
+  n = Number(n);
+  if(!isFinite(n)) n = 0;
+  const signo = n<0 ? '-' : '';
+  return signo + '$ ' + Math.round(Math.abs(n)).toLocaleString('es-UY');
+}
+function uid(){ return Math.random().toString(36).slice(2,10); }
+function uidReal(){ return crypto.randomUUID(); }
+function esMismoMes(iso, ref){ if(!iso) return false; return iso.slice(0,7) === ref.slice(0,7); }
+
+/* -------- Semilla de datos demo -------- */
+async function cargarDatosDesdeSupabase(){
+  const [resClientes, resPrestamos, resMovimientos] = await Promise.all([
+    supabaseClient.from('clientes').select('*').order('orden_ruta', { ascending: true, nullsFirst: false }),
+    supabaseClient.from('prestamos').select('*, cuotas(*)'),
+    supabaseClient.from('movimientos').select('*')
+  ]);
+
+  if(resClientes.error || resPrestamos.error || resMovimientos.error){
+    console.error('Error al cargar datos de Supabase — se conserva lo que ya había en pantalla.',
+      resClientes.error, resPrestamos.error, resMovimientos.error);
+    toast('⚠️ No se pudo actualizar la información (revisá tu conexión). Se mantiene lo último que se vio bien.');
+    return false;
+  }
+
+  const clientesDB = resClientes.data;
+  const prestamosDB = resPrestamos.data;
+  const movimientosDB = resMovimientos.data;
+
+  state.clientes = (clientesDB || []).map(c => ({
+    id: c.id,
+    nombre: c.nombre,
+    telefono: c.telefono || '',
+    documento: c.documento || '',
+    direccion: c.direccion || '',
+    orden: c.orden_ruta,
+    vendedorId: c.vendedor_id
+  }));
+
+  state.prestamos = (prestamosDB || []).map(p => ({
+    id: p.id,
+    clienteId: p.cliente_id,
+    valor: Number(p.valor),
+    interes: Number(p.interes),
+    nCuotas: p.n_cuotas,
+    cuotaDiaria: Number(p.cuota_diaria),
+    fechaInicio: p.fecha_inicio,
+    creadoEn: p.creado_en,
+    totalPagar: Number(p.valor) + Number(p.valor) * Number(p.interes) / 100,
+    depurado: !!p.depurado,
+    capitalAlDepurar: p.capital_al_depurar,
+    cuotas: (p.cuotas || []).slice().sort((a,b)=>a.n-b.n).map(cu => ({
+      id: cu.id,
+      n: cu.n,
+      fecha: cu.fecha,
+      estado: cu.estado,
+      montoPagado: Number(cu.monto_pagado) || 0,
+      fechaPago: cu.fecha_pago,
+      loteId: cu.lote_id
+    }))
+  }));
+
+  state.movimientos = (movimientosDB || []).map(m => ({
+    id: m.id,
+    tipo: m.tipo,
+    concepto: m.concepto,
+    monto: Number(m.monto),
+    fecha: m.fecha,
+    vendedorId: m.vendedor_id
+  }));
+  return true;
+}
+
+/* ---- Sincronización con Supabase (escritura) ---- */
+async function sincronizarCuota(cu){
+  try{
+    const { data, error } = await supabaseClient.from('cuotas').update({
+      estado: cu.estado,
+      monto_pagado: cu.montoPagado || 0,
+      fecha_pago: cu.fechaPago,
+      lote_id: cu.loteId || null
+    }).eq('id', cu.id).select();
+    if(error) throw error;
+    if(!data || data.length===0){
+      console.error('sincronizarCuota: el update no encontró ninguna fila con id', cu.id, '— revisar permisos (RLS) o que el id sea correcto.');
+      toast('⚠️ El pago no se guardó (no se encontró la cuota en la base). Avisá al administrador.');
+      return false;
+    }
+    console.log('Cuota sincronizada OK:', data[0].id, data[0].estado, data[0].monto_pagado);
+    return true;
+  } catch(e){
+    console.error('No se pudo sincronizar la cuota', cu.id, e);
+    toast('⚠️ No se guardó este pago en la base — revisá tu conexión y volvé a intentarlo');
+    return false;
+  }
+}
+
+function seed(){
+  const hoy = todayISO();
+  const c1 = { id: uid(), nombre:'Rosana Techera', telefono:'099231456', documento:'4.123.456-7', direccion:'Barrio Kennedy, Maldonado' };
+  const c2 = { id: uid(), nombre:'Marcelo Da Silva', telefono:'098765432', documento:'3.987.654-3', direccion:'San Carlos, calle 18' };
+  const c3 = { id: uid(), nombre:'Yanina Correa', telefono:'091555777', documento:'4.555.222-1', direccion:'Piriápolis centro' };
+  const c4 = { id: uid(), nombre:'Pablo Núñez', telefono:'092444888', documento:'4.222.333-9', direccion:'Maldonado Nuevo' };
+  state.clientes.push(c1,c2,c3,c4);
+
+  // Cliente 1: activo, con cuotas atrasadas moderadas (amarillo) y una que vence hoy
+  const p1 = crearPrestamoObj(c1.id, 15000, 20, 30, addDays(hoy,-12)); p1.creadoEn = p1.fechaInicio;
+  for(let i=0;i<7;i++){ marcarPagoInterno(p1.cuotas[i], 'pagada', p1.cuotaDiaria, p1.cuotas[i].fecha); }
+  for(let i=7;i<11;i++){ p1.cuotas[i].estado='pendiente'; } // quedan atrasadas (fecha pasada, sin marcar) -> 4 atrasadas => amarillo
+  state.prestamos.push(p1);
+
+  // Cliente 2: recién arrancando, al día, cuota vence hoy
+  const p2 = crearPrestamoObj(c2.id, 8000, 15, 20, addDays(hoy,-1)); p2.creadoEn = p2.fechaInicio;
+  marcarPagoInterno(p2.cuotas[0], 'pagada', p2.cuotaDiaria, p2.cuotas[0].fecha);
+  state.prestamos.push(p2);
+
+  // Cliente 3: mora fuerte (rojo, 8 cuotas atrasadas)
+  const p3 = crearPrestamoObj(c3.id, 12000, 20, 30, addDays(hoy,-20)); p3.creadoEn = p3.fechaInicio;
+  for(let i=0;i<12;i++){ marcarPagoInterno(p3.cuotas[i], 'pagada', p3.cuotaDiaria, p3.cuotas[i].fecha); }
+  // cuotas 12..19 quedan pendientes con fecha pasada => 8 atrasadas
+  state.prestamos.push(p3);
+
+  // Cliente 4: crédito ya finalizado por completo -> pasa a lista de espera (inactivo)
+  const p4 = crearPrestamoObj(c4.id, 6000, 15, 15, addDays(hoy,-16)); p4.creadoEn = p4.fechaInicio;
+  for(let i=0;i<15;i++){ marcarPagoInterno(p4.cuotas[i], 'pagada', p4.cuotaDiaria, p4.cuotas[i].fecha); }
+  state.prestamos.push(p4);
+
+  state.movimientos.push(
+    { id:uid(), tipo:'egreso', concepto:'Combustible para cobranza', monto:800, fecha:hoy },
+    { id:uid(), tipo:'ingreso', concepto:'Recupero de préstamo antiguo', monto:2000, fecha:hoy }
+  );
+}
+
+function marcarPagoInterno(cuota, estado, monto, fecha, loteId){
+  cuota.estado = estado; cuota.montoPagado = monto; cuota.fechaPago = fecha;
+  cuota.loteId = loteId || uidReal();
+}
+
+function crearPrestamoObj(clienteId, valor, interes, nCuotas, fechaInicio, cuotaManual){
+  nCuotas = Math.min(nCuotas, 30);
+  const totalPagar = valor + (valor * interes/100);
+  const cuotaDiaria = cuotaManual ? cuotaManual : Math.round(totalPagar / nCuotas);
+  const cuotas = [];
+  for(let i=0;i<nCuotas;i++){
+    cuotas.push({ n:i+1, fecha: addDays(fechaInicio, i), estado:'pendiente', montoPagado:0, fechaPago:null });
+  }
+  return { id: uid(), clienteId, valor, interes, nCuotas, cuotaDiaria, fechaInicio, totalPagar, cuotas, creadoEn: todayISO() };
+}
+
+/* =========================================================
+   CÁLCULOS DE ESTADO Y DINERO
+   ========================================================= */
+function prestamosDe(clienteId){ return state.prestamos.filter(p=>p.clienteId===clienteId); }
+
+function creditoActualDe(clienteId){
+  const ps = prestamosDe(clienteId);
+  if(ps.length===0) return null;
+  const activos = ps.filter(p=>!prestamoFinalizado(p));
+  if(activos.length>0) return activos[activos.length-1];
+  return ps[ps.length-1];
+}
+
+function cuotaEstaAtrasada(cuota, hoy){
+  return cuota.fecha < hoy && cuota.estado !== 'pagada';
+}
+
+function contarAtrasadas(clienteId){
+  const hoy = todayISO();
+  let n = 0;
+  prestamosDe(clienteId).forEach(p=>{ if(p.depurado) return; p.cuotas.forEach(c=>{ if(cuotaEstaAtrasada(c,hoy)) n++; }); });
+  return n;
+}
+
+function colorCliente(clienteId){
+  const n = contarAtrasadas(clienteId);
+  if(n>6) return 'rojo';
+  if(n>3) return 'amarillo';
+  return 'verde';
+}
+
+function prestamoFinalizado(p){ return !!p.depurado || p.cuotas.every(c=>c.estado==='pagada'); }
+
+function clienteInactivo(clienteId){
+  const ps = prestamosDe(clienteId);
+  if(ps.length===0) return false;
+  return ps.every(p=>prestamoFinalizado(p));
+}
+
+function saldoRestante(prestamo){
+  if(prestamo.depurado) return 0;
+  let saldo = 0;
+  prestamo.cuotas.forEach(c=>{
+    if(c.estado==='pagada') return;
+    const falta = prestamo.cuotaDiaria - (c.estado==='abono' ? c.montoPagado : 0);
+    saldo += falta;
+  });
+  return saldo;
+}
+
+function saldoRestanteCliente(clienteId){
+  return prestamosDe(clienteId).reduce((acc,p)=> acc + saldoRestante(p), 0);
+}
+
+function capitalPorCuota(prestamo){ return prestamo.valor / prestamo.nCuotas; }
+
+/* capital recuperado a partir de un pago (proporcional capital/total de la cuota) */
+function capitalRecuperadoDePago(prestamo, montoPagado){
+  const fraccion = capitalPorCuota(prestamo) / prestamo.cuotaDiaria;
+  return montoPagado * fraccion;
+}
+function interesRecuperadoDePago(prestamo, montoPagado){
+  return montoPagado - capitalRecuperadoDePago(prestamo, montoPagado);
+}
+
+function totalRecaudadoHoy(){
+  const hoy = todayISO();
+  let t = 0;
+  state.prestamos.forEach(p=> p.cuotas.forEach(c=>{ if(c.fechaPago===hoy) t += (c.montoPagado||0); }));
+  return t;
+}
+
+function totalACobrarHoy(){
+  const hoy = todayISO();
+  let t = 0;
+  state.prestamos.forEach(p=> p.cuotas.forEach(c=>{ if(c.fecha===hoy) t += p.cuotaDiaria; }));
+  return t;
+}
+
+function gananciaAcumuladaMes(){
+  const hoy = todayISO();
+  let g = 0;
+  state.prestamos.forEach(p=> p.cuotas.forEach(c=>{
+    if(c.fechaPago && esMismoMes(c.fechaPago, hoy)) g += interesRecuperadoDePago(p, c.montoPagado||0);
+  }));
+  return g;
+}
+
+function capitalRecuperadoHistorico(){
+  let c = 0;
+  state.prestamos.forEach(p=> p.cuotas.forEach(cu=>{
+    if(cu.fechaPago) c += capitalRecuperadoDePago(p, cu.montoPagado||0);
+  }));
+  return c;
+}
+
+function capitalPendienteTotal(){
+  let c = 0;
+  state.prestamos.forEach(p=>{
+    if(p.depurado) return;
+    const capCuota = capitalPorCuota(p);
+    p.cuotas.forEach(cu=>{
+      if(cu.estado==='pagada') return;
+      const yaRecuperado = cu.estado==='abono' ? capitalRecuperadoDePago(p, cu.montoPagado||0) : 0;
+      c += Math.max(0, capCuota - yaRecuperado);
+    });
+  });
+  return c;
+}
+
+/* =========================================================
+   CLIENTES INCOBRABLES (más de 40 días sin ningún pago)
+   ========================================================= */
+function diasAtrasoPrestamo(p){
+  const cu = p.cuotas.find(c=>c.estado==='pendiente');
+  if(!cu) return 0;
+  return Math.max(0, diasEntre(cu.fecha, todayISO()));
+}
+
+function clientesIncobrables(){
+  const candidatos = [];
+  state.prestamos.forEach(p=>{
+    if(p.depurado || prestamoFinalizado(p)) return;
+    const dias = diasAtrasoPrestamo(p);
+    if(dias>=40){
+      const cliente = state.clientes.find(c=>c.id===p.clienteId);
+      if(cliente) candidatos.push({cliente, p, dias});
+    }
+  });
+  candidatos.sort((a,b)=> b.dias-a.dias);
+  return candidatos;
+}
+
+function capitalPendientePrestamo(p){
+  const capCuota = capitalPorCuota(p);
+  let c = 0;
+  p.cuotas.forEach(cu=>{
+    if(cu.estado==='pagada') return;
+    const yaRecuperado = cu.estado==='abono' ? capitalRecuperadoDePago(p, cu.montoPagado||0) : 0;
+    c += Math.max(0, capCuota - yaRecuperado);
+  });
+  return c;
+}
+
+function capitalDepuradoTotal(){
+  return state.prestamos.filter(p=>p.depurado).reduce((a,p)=>a+(p.capitalAlDepurar||0),0);
+}
+
+async function depurarCredito(prestamoId){
+  if(state.usuarioRol !== 'administrador'){ toast('Esta acción es solo para administradores'); return; }
+  const p = state.prestamos.find(pp=>pp.id===prestamoId);
+  if(!p) return;
+  const cliente = state.clientes.find(c=>c.id===p.clienteId);
+  if(!confirm(`¿Dar de baja el crédito de ${cliente.nombre} por incobrable? Saldrá de la cartera activa (deja de contar como atraso o saldo pendiente), pero queda el registro histórico.`)) return;
+  p.capitalAlDepurar = capitalPendientePrestamo(p);
+  p.depurado = true;
+  p.fechaDepurado = todayISO();
+  toast('Crédito depurado');
+  renderReportes();
+  try{
+    const { error } = await supabaseClient.from('prestamos').update({
+      depurado: true, capital_al_depurar: p.capitalAlDepurar, fecha_depurado: p.fechaDepurado
+    }).eq('id', p.id);
+    if(error) throw error;
+  } catch(e){
+    console.error('No se pudo sincronizar la depuración en Supabase', e);
+    toast('⚠️ No se guardó la depuración en la base — revisá tu conexión');
+  }
+}
+
+function saldoEnCajaReal(){
+  let total = 0;
+  state.prestamos.forEach(p=> p.cuotas.forEach(cu=>{ if(cu.fechaPago) total += (cu.montoPagado||0); }));
+  state.movimientos.forEach(m=>{ total += (m.tipo==='ingreso' ? m.monto : -m.monto); });
+  return total;
+}
+
+function saldoAlDiaAnterior(){
+  const hoy = todayISO();
+  let total = 0;
+  state.prestamos.forEach(p=> p.cuotas.forEach(cu=>{ if(cu.fechaPago && cu.fechaPago<hoy) total += (cu.montoPagado||0); }));
+  state.movimientos.forEach(m=>{ if(m.fecha<hoy) total += (m.tipo==='ingreso' ? m.monto : -m.monto); });
+  return total;
+}
+
+function consolidadoMensual(){
+  const hoy = todayISO();
+  let recaudoMes = 0, ingresosAdicMes = 0, egresosMes = 0;
+  state.prestamos.forEach(p=> p.cuotas.forEach(cu=>{
+    if(cu.fechaPago && esMismoMes(cu.fechaPago, hoy)) recaudoMes += (cu.montoPagado||0);
+  }));
+  state.movimientos.forEach(m=>{
+    if(!esMismoMes(m.fecha, hoy)) return;
+    if(m.tipo==='ingreso') ingresosAdicMes += m.monto; else egresosMes += m.monto;
+  });
+  return { recaudoMes, ingresosMes: ingresosAdicMes, egresosMes };
+}
+
+function creditosHoy(){
+  const hoy = todayISO();
+  let nuevos = 0, renovados = 0;
+  const porCliente = {};
+  state.prestamos.forEach(p=>{
+    porCliente[p.clienteId] = porCliente[p.clienteId] || [];
+    porCliente[p.clienteId].push(p);
+  });
+  state.prestamos.forEach(p=>{
+    if(p.creadoEn !== hoy) return;
+    const esPrimero = porCliente[p.clienteId][0].id === p.id;
+    if(esPrimero) nuevos++; else renovados++;
+  });
+  return { nuevos, renovados };
+}
+
+function ventasDelDia(){
+  const hoy = todayISO();
+  return state.prestamos.filter(p=>p.creadoEn===hoy).reduce((a,p)=>a+p.valor,0);
+}
+
+/* =========================================================
+   NAVEGACIÓN
+   ========================================================= */
+function nav(screenName){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  const target = document.getElementById('screen-'+screenName);
+  if(target) target.classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n=> n.classList.toggle('active', n.dataset.screen === screenName));
+  const navScreens = ['inicio','clientes','caja','reportes'];
+  document.getElementById('bottomNav').classList.toggle('hidden', !navScreens.includes(screenName));
+
+  if(screenName === 'login') renderLogin();
+  if(screenName === 'inicio') renderInicio();
+  if(screenName === 'clientes') renderClientes();
+  if(screenName === 'caja') renderCaja();
+  if(screenName === 'movimientos') renderMovimientos();
+  if(screenName === 'reportes') abrirReportes();
+  if(screenName === 'panel-admin') renderPanelAdmin();
+}
+function volverAtras(){ nav(state.pantallaAnterior); }
+
+/* =========================================================
+   LOGIN — código de ingreso (interfaz de texto, sin teclado numérico)
+   ========================================================= */
+function abrirOlvidoPin(){
+  const backdrop = document.createElement('div');
+  backdrop.className='modal-backdrop';
+  backdrop.onclick = (e)=>{ if(e.target===backdrop) backdrop.remove(); };
+
+  if(!TELEFONO_ADMINISTRADOR){
+    backdrop.innerHTML = `
+      <div class="modal-sheet">
+        <h3>🔑 ¿Olvidaste tu código?</h3>
+        <div class="sub">Todavía no se configuró un teléfono de administrador en el archivo de la app, así que no podemos avisarle por WhatsApp. Contactalo por otro medio para que te restablezca el acceso desde Supabase.</div>
+        <button class="btn btn-secondary" id="btnCerrarOlvidoPin">Entendido</button>
+      </div>`;
+    document.getElementById('app').appendChild(backdrop);
+    backdrop.querySelector('#btnCerrarOlvidoPin').onclick = ()=> backdrop.remove();
+    return;
+  }
+
+  backdrop.innerHTML = `
+    <div class="modal-sheet">
+      <h3>🔑 ¿Olvidaste tu código?</h3>
+      <div class="sub">Como el acceso lo maneja el administrador, no podemos restablecerlo solos desde acá. Te ayudamos a avisarle por WhatsApp para que te dé uno nuevo.</div>
+      <button class="btn btn-whatsapp" id="btnAvisarAdmin">💬 Avisarle al administrador por WhatsApp</button>
+      <button class="btn btn-secondary" style="margin-top:12px;" id="btnCerrarOlvidoPin">Cancelar</button>
+    </div>`;
+  document.getElementById('app').appendChild(backdrop);
+
+  backdrop.querySelector('#btnAvisarAdmin').onclick = ()=>{
+    const tel = telefonoWhatsapp(TELEFONO_ADMINISTRADOR);
+    const msg = `Hola, me olvidé mi código de ingreso a Kart360. ¿Me ayudás a restablecerlo?`;
+    window.open(`https://wa.me/${tel}?text=${encodeURIComponent(msg)}`, '_blank');
+    backdrop.remove();
+  };
+  backdrop.querySelector('#btnCerrarOlvidoPin').onclick = ()=> backdrop.remove();
+}
+
+let intentosLoginFallidos = 0;
+let loginBloqueadoHasta = 0;
+let rolLoginSeleccionado = 'vendedor';
+
+function setRolLogin(rol){
+  rolLoginSeleccionado = rol;
+  document.getElementById('rolLoginVendedor').classList.toggle('active', rol==='vendedor');
+  document.getElementById('rolLoginAdmin').classList.toggle('active', rol==='administrador');
+}
+
+async function intentarIngresar(){
+  const codigo = document.getElementById('codigoIngreso').value.trim();
+  const errorEl = document.getElementById('loginError');
+
+  const ahora = Date.now();
+  if(ahora < loginBloqueadoHasta){
+    const segundos = Math.ceil((loginBloqueadoHasta - ahora)/1000);
+    errorEl.textContent = `Demasiados intentos. Esperá ${segundos} segundos.`;
+    return;
+  }
+
+  if(!esPinValido(codigo)){
+    errorEl.textContent = 'El código debe tener exactamente 6 dígitos numéricos';
+    return;
+  }
+  errorEl.textContent = 'Verificando...';
+
+  const candidatos = rolLoginSeleccionado === 'administrador'
+    ? ['admin@kart360.local']
+    : ['cobrador@kart360.local'];
+  let sesion = null;
+  let ultimoError = null;
+  for(const email of candidatos){
+    try{
+      const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password: codigo });
+      if(!error && data.session){ sesion = data; break; }
+      if(error){ ultimoError = error; }
+    } catch(e){
+      ultimoError = e;
+      console.error('Excepción al intentar login con', email, '→', e);
+    }
+  }
+
+  if(!sesion){
+    if(ultimoError) console.error('Detalle del error de login:', ultimoError);
+    intentosLoginFallidos++;
+    if(intentosLoginFallidos >= 5){
+      const esperaSegundos = Math.min(60, 10 * (intentosLoginFallidos - 4));
+      loginBloqueadoHasta = Date.now() + esperaSegundos*1000;
+      errorEl.textContent = `Demasiados intentos. Esperá ${esperaSegundos} segundos.`;
+    } else {
+      errorEl.textContent = 'Código incorrecto';
+    }
+    return;
+  }
+
+  intentosLoginFallidos = 0;
+  const { data: perfil, error: errorPerfil } = await supabaseClient
+    .from('usuarios')
+    .select('nombre, rol')
+    .eq('id', sesion.user.id)
+    .single();
+
+  if(errorPerfil || !perfil){
+    errorEl.textContent = 'Ingresaste bien, pero no encontramos tu perfil en la base. Avisá al administrador.';
+    await supabaseClient.auth.signOut();
+    return;
+  }
+
+  state.usuarioRol = perfil.rol;
+  errorEl.textContent = 'Cargando datos...';
+  await cargarDatosDesdeSupabase();
+  activarRealtime();
+  if(state.usuarioRol === 'administrador') contarSolicitudesPendientes();
+  errorEl.textContent = '';
+  toast(`Ingresaste como ${perfil.nombre}`);
+  nav('inicio');
+}
+
+/* =========================================================
+   REALTIME — mantener a los dos dispositivos sincronizados
+   ========================================================= */
+let canalRealtime = null;
+let refrescoRealtimePendiente = null;
+
+function activarRealtime(){
+  if(canalRealtime) return;
+  canalRealtime = supabaseClient
+    .channel('kart360-cambios')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'clientes' }, manejarCambioRealtime)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'prestamos' }, manejarCambioRealtime)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'cuotas' }, manejarCambioRealtime)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'movimientos' }, manejarCambioRealtime)
+    .subscribe();
+}
+
+function desactivarRealtime(){
+  if(canalRealtime){
+    supabaseClient.removeChannel(canalRealtime);
+    canalRealtime = null;
+  }
+}
+
+function manejarCambioRealtime(payload){
+  console.log('🔄 Realtime detectó un cambio en', payload && payload.table, '→ se va a refrescar la pantalla en 700ms');
+  // Varios cambios pueden llegar juntos (ej: crear cliente + crédito + 24 cuotas).
+  // Esperamos un instante para agruparlos en un solo refresco, en vez de recargar 26 veces seguidas.
+  if(refrescoRealtimePendiente) clearTimeout(refrescoRealtimePendiente);
+  refrescoRealtimePendiente = setTimeout(async ()=>{
+    refrescoRealtimePendiente = null;
+    const clienteAntes = state.clienteActivoId;
+    const prestamoAntes = state.prestamoActivoId;
+    await cargarDatosDesdeSupabase();
+    console.log('🔄 Refresco por Realtime completo. Préstamos en memoria:', state.prestamos.length);
+    const pantalla = pantallaActiva();
+    if(pantalla === 'inicio') renderInicio();
+    else if(pantalla === 'clientes') renderClientes();
+    else if(pantalla === 'caja') renderCaja();
+    else if(pantalla === 'movimientos') renderMovimientos();
+    else if(pantalla === 'reportes') abrirReportes();
+    else if(pantalla === 'ficha' && clienteAntes) abrirFicha(clienteAntes);
+    else if(pantalla === 'detalle-prestamo' && prestamoAntes) abrirDetallePrestamo(prestamoAntes);
+  }, 700);
+}
+
+/* =========================================================
+   MI CUENTA — rol y código de acceso
+   ========================================================= */
+function renderAjustes(){
+  contarSolicitudesPendientes();
+}
+
+
+function abrirReportes(){
+  const esAdmin = state.usuarioRol==='administrador';
+  document.getElementById('reportesBloqueado').classList.toggle('hidden', esAdmin);
+  document.getElementById('reportesContenido').classList.toggle('hidden', !esAdmin);
+  if(esAdmin) renderReportes();
+}
+
+/* =========================================================
+   PANEL DE ADMINISTRADOR — reportes y ruta por cobrador
+   ========================================================= */
+let cobradoresDelPanel = [];
+let vendedorActivoPanel = null;
+let tabPanelActiva = 'diarios';
+
+function abrirMenuCobradoresPanel(){
+  const backdrop = document.createElement('div');
+  backdrop.className = 'modal-backdrop';
+  backdrop.onclick = (e)=>{ if(e.target===backdrop) backdrop.remove(); };
+  backdrop.innerHTML = `
+    <div class="modal-sheet">
+      <h3>Cobradores</h3>
+      <div class="sub">Elegí qué querés hacer.</div>
+      <button class="btn btn-secondary" style="text-align:left; padding-left:16px;" id="optAgregarCobradorPanel">➕ Agregar cobrador nuevo</button>
+      <button class="btn btn-secondary" style="text-align:left; padding-left:16px; margin-top:8px;" id="optModificarCobradorPanel">✏️ Modificar cobrador existente</button>
+      <button class="btn btn-secondary" style="text-align:left; padding-left:16px; margin-top:8px; color:var(--brick);" id="optEliminarCobradorPanel">🗑️ Eliminar cobrador</button>
+      <button class="btn btn-secondary" style="margin-top:14px;" onclick="this.closest('.modal-backdrop').remove();">Cancelar</button>
+    </div>`;
+  document.getElementById('app').appendChild(backdrop);
+  backdrop.querySelector('#optAgregarCobradorPanel').onclick = ()=>{ backdrop.remove(); avisoAgregarCobrador(); };
+  backdrop.querySelector('#optModificarCobradorPanel').onclick = ()=>{ backdrop.remove(); abrirModificarCobrador(); };
+  backdrop.querySelector('#optEliminarCobradorPanel').onclick = ()=>{ backdrop.remove(); abrirEliminarCobrador(); };
+}
+
+function avisoAgregarCobrador(){
+  const backdrop = document.createElement('div');
+  backdrop.className = 'modal-backdrop';
+  backdrop.onclick = (e)=>{ if(e.target===backdrop) backdrop.remove(); };
+  backdrop.innerHTML = `
+    <div class="modal-sheet">
+      <h3>➕ Agregar cobrador</h3>
+      <div class="sub">Por seguridad, crear un usuario nuevo con su propio PIN todavía se hace desde el panel de Supabase (Authentication → Users), para no cerrar tu sesión de administrador por accidente. Una vez creado ahí, ya va a aparecer solo en este selector.</div>
+      <button class="btn btn-primary" onclick="this.closest('.modal-backdrop').remove();">Entendido</button>
+    </div>`;
+  document.getElementById('app').appendChild(backdrop);
+}
+
+function abrirModificarCobrador(){
+  if(cobradoresDelPanel.length===0){ toast('No hay cobradores cargados todavía'); return; }
+  const backdrop = document.createElement('div');
+  backdrop.className = 'modal-backdrop';
+  backdrop.onclick = (e)=>{ if(e.target===backdrop) backdrop.remove(); };
+  backdrop.innerHTML = `
+    <div class="modal-sheet">
+      <h3>✏️ Modificar cobrador</h3>
+      <div class="sub">Elegí y cambiá el nombre.</div>
+      <div class="field" style="margin-bottom:14px; text-align:left;">
+        <label style="display:block; font-size:11px; font-weight:700; color:var(--ink-soft); text-transform:uppercase; margin-bottom:6px;">Cobrador</label>
+        <select id="selCobradorModPanel" style="width:100%; padding:11px 13px; border-radius:10px; border:1.5px solid var(--line); font-size:14px;">
+          ${cobradoresDelPanel.map(v=>`<option value="${v.id}">${escapeHtml(v.nombre)}</option>`).join('')}
+        </select>
+      </div>
+      <div class="field" style="margin-bottom:14px; text-align:left;">
+        <label style="display:block; font-size:11px; font-weight:700; color:var(--ink-soft); text-transform:uppercase; margin-bottom:6px;">Nuevo nombre</label>
+        <input type="text" id="inpNombreModPanel" value="${escapeHtml(cobradoresDelPanel[0].nombre)}" style="width:100%; padding:11px 13px; border-radius:10px; border:1.5px solid var(--line); font-size:14px;">
+      </div>
+      <button class="btn btn-primary" id="btnGuardarModPanel">Guardar</button>
+      <button class="btn btn-secondary" onclick="this.closest('.modal-backdrop').remove();">Cancelar</button>
+    </div>`;
+  document.getElementById('app').appendChild(backdrop);
+  const sel = backdrop.querySelector('#selCobradorModPanel');
+  const inp = backdrop.querySelector('#inpNombreModPanel');
+  sel.onchange = ()=>{ inp.value = cobradoresDelPanel.find(v=>v.id===sel.value).nombre; };
+  backdrop.querySelector('#btnGuardarModPanel').onclick = async ()=>{
+    const nuevoNombre = inp.value.trim();
+    if(!nuevoNombre){ toast('El nombre no puede quedar vacío'); return; }
+    try{
+      const { error } = await supabaseClient.from('usuarios').update({ nombre: nuevoNombre }).eq('id', sel.value);
+      if(error) throw error;
+      const v = cobradoresDelPanel.find(v=>v.id===sel.value);
+      v.nombre = nuevoNombre;
+      backdrop.remove();
+      toast('Cobrador modificado');
+      renderPanelAdmin();
+    } catch(e){
+      console.error(e);
+      toast('⚠️ No se pudo guardar el cambio');
+    }
+  };
+}
+
+function abrirEliminarCobrador(){
+  if(cobradoresDelPanel.length===0){ toast('No hay cobradores cargados todavía'); return; }
+  const backdrop = document.createElement('div');
+  backdrop.className = 'modal-backdrop';
+  backdrop.onclick = (e)=>{ if(e.target===backdrop) backdrop.remove(); };
+  backdrop.innerHTML = `
+    <div class="modal-sheet">
+      <h3>🗑️ Eliminar cobrador</h3>
+      <div class="sub">Esto borra su acceso al sistema. Sus clientes NO se borran, quedan asignados a ese cobrador (recomendamos reasignarlos antes desde Supabase si hace falta).</div>
+      <div class="field" style="margin-bottom:14px; text-align:left;">
+        <label style="display:block; font-size:11px; font-weight:700; color:var(--ink-soft); text-transform:uppercase; margin-bottom:6px;">Cobrador</label>
+        <select id="selCobradorElimPanel" style="width:100%; padding:11px 13px; border-radius:10px; border:1.5px solid var(--line); font-size:14px;">
+          ${cobradoresDelPanel.map(v=>`<option value="${v.id}">${escapeHtml(v.nombre)}</option>`).join('')}
+        </select>
+      </div>
+      <button class="btn" style="background:var(--brick-tint); color:var(--brick);" id="btnConfirmarElimPanel">Eliminar</button>
+      <button class="btn btn-secondary" onclick="this.closest('.modal-backdrop').remove();">Cancelar</button>
+    </div>`;
+  document.getElementById('app').appendChild(backdrop);
+  backdrop.querySelector('#btnConfirmarElimPanel').onclick = async ()=>{
+    const id = backdrop.querySelector('#selCobradorElimPanel').value;
+    const v = cobradoresDelPanel.find(v=>v.id===id);
+    if(!confirm(`¿Eliminar a ${v.nombre} del sistema? Esta acción no se puede deshacer.`)) return;
+    try{
+      const { error } = await supabaseClient.from('usuarios').delete().eq('id', id);
+      if(error) throw error;
+      cobradoresDelPanel = cobradoresDelPanel.filter(v=>v.id!==id);
+      if(vendedorActivoPanel===id) vendedorActivoPanel = cobradoresDelPanel.length>0 ? cobradoresDelPanel[0].id : null;
+      backdrop.remove();
+      toast(`${v.nombre} eliminado`);
+      renderPanelAdmin();
+    } catch(e){
+      console.error(e);
+      toast('⚠️ No se pudo eliminar — puede tener datos vinculados que lo impiden');
+    }
+  };
+}
+
+async function abrirPanelAdmin(){
+  if(state.usuarioRol !== 'administrador'){ toast('Esta sección es solo para administradores'); return; }
+  const { data, error } = await supabaseClient.from('usuarios').select('id, nombre').eq('rol','cobrador');
+  if(error){ toast('⚠️ No se pudo cargar la lista de cobradores'); console.error(error); return; }
+  cobradoresDelPanel = data || [];
+  if(!vendedorActivoPanel && cobradoresDelPanel.length>0) vendedorActivoPanel = cobradoresDelPanel[0].id;
+  nav('panel-admin');
+}
+
+function clientesDe(vendedorId){
+  return state.clientes.filter(c=>c.vendedorId===vendedorId);
+}
+function prestamosDeVendedor(vendedorId){
+  const idsClientes = clientesDe(vendedorId).map(c=>c.id);
+  return state.prestamos.filter(p=>idsClientes.includes(p.clienteId));
+}
+
+function calcularDiarioVendedor(vendedorId){
+  const hoy = todayISO();
+  const clientes = clientesDe(vendedorId);
+  const prestamosV = prestamosDeVendedor(vendedorId);
+  let recaudo=0, cobrados=0, nuevos=0;
+  prestamosV.forEach(p=>{
+    if(p.creadoEn===hoy) nuevos++;
+    p.cuotas.forEach(cu=>{ if(cu.fechaPago===hoy) recaudo += (cu.montoPagado||0); });
+  });
+  const hoyPorCliente = cuotasDeHoyPorCliente();
+  clientes.forEach(c=>{
+    if(hoyPorCliente[c.id] && hoyPorCliente[c.id].cobradas.length>0) cobrados++;
+  });
+  const movsHoyV = state.movimientos.filter(m=> m.fecha===hoy && m.vendedorId===vendedorId);
+  const gastos = movsHoyV.filter(m=>m.tipo==='egreso').reduce((a,m)=>a+m.monto,0);
+  const ingreso = movsHoyV.filter(m=>m.tipo==='ingreso').reduce((a,m)=>a+m.monto,0);
+  return {
+    cobrados,
+    noCobrados: Math.max(0, clientes.length - cobrados),
+    nuevosRenovados: nuevos,
+    gastos,
+    ingreso,
+    ventas: prestamosV.filter(p=>p.creadoEn===hoy).reduce((a,p)=>a+p.valor,0),
+    recaudo,
+    saldoEnCaja: recaudo + ingreso - gastos,
+  };
+}
+
+function calcularMensualVendedor(vendedorId){
+  const hoy = todayISO();
+  const prestamosV = prestamosDeVendedor(vendedorId);
+  let recaudoMes=0, carteraFinal=0, carteraSinInteres=0, ventasMes=0;
+  prestamosV.forEach(p=>{
+    if(!p.depurado) carteraFinal += saldoRestante(p);
+    if(!p.depurado) carteraSinInteres += capitalPendientePrestamo(p);
+    if(esMismoMes(p.creadoEn, hoy)) ventasMes += p.valor;
+    p.cuotas.forEach(cu=>{ if(cu.fechaPago && esMismoMes(cu.fechaPago, hoy)) recaudoMes += (cu.montoPagado||0); });
+  });
+  const movsMesV = state.movimientos.filter(m=> m.vendedorId===vendedorId && esMismoMes(m.fecha, hoy));
+  const gastos = movsMesV.filter(m=>m.tipo==='egreso').reduce((a,m)=>a+m.monto,0);
+  const ingresos = movsMesV.filter(m=>m.tipo==='ingreso').reduce((a,m)=>a+m.monto,0);
+  return {
+    gastos: Math.round(gastos),
+    ingresos: Math.round(ingresos),
+    carteraSinInteres: Math.round(carteraSinInteres),
+    ventas: Math.round(ventasMes),
+    recaudo: Math.round(recaudoMes),
+    ganancia: Math.round(recaudoMes*0.3),
+    carteraFinal: Math.round(carteraFinal),
+  };
+}
+
+function renderSelectorVendedorPanel(){
+  const box = document.getElementById('selectorVendedorPanel');
+  box.innerHTML = '';
+  cobradoresDelPanel.forEach(v=>{
+    const chip = document.createElement('div');
+    chip.className = 'toggle-btn' + (vendedorActivoPanel===v.id ? ' active' : '');
+    chip.textContent = v.nombre;
+    chip.onclick = ()=>{ vendedorActivoPanel = v.id; renderPanelAdmin(); };
+    box.appendChild(chip);
+  });
+}
+
+function setTabPanel(tab){ tabPanelActiva = tab; renderPanelAdmin(); }
+
+function renderPanelAdmin(){
+  if(!vendedorActivoPanel){
+    document.getElementById('tabPanelContenido').innerHTML = '<div class="empty-state"><div class="glyph">👤</div><div>Todavía no hay ningún cobrador cargado.</div></div>';
+    return;
+  }
+  renderSelectorVendedorPanel();
+  document.getElementById('tabPanelDiarios').classList.toggle('active', tabPanelActiva==='diarios');
+  document.getElementById('tabPanelMensuales').classList.toggle('active', tabPanelActiva==='mensuales');
+  document.getElementById('tabPanelClientes').classList.toggle('active', tabPanelActiva==='clientes');
+
+  const box = document.getElementById('tabPanelContenido');
+  if(tabPanelActiva==='diarios'){
+    const d = calcularDiarioVendedor(vendedorActivoPanel);
+    box.innerHTML = `
+      <div class="card" style="margin-top:14px;">
+        <div class="kv-row"><span class="k">✅ Cobrado</span><span class="v">${d.cobrados}</span></div>
+        <div class="kv-row"><span class="k">⏳ No cobrado</span><span class="v">${d.noCobrados}</span></div>
+        <div class="kv-row"><span class="k">🆕 Nuevo o renovado</span><span class="v">${d.nuevosRenovados}</span></div>
+        <div class="kv-row"><span class="k">➖ Gastos</span><span class="v num">${fmt(d.gastos)}</span></div>
+        <div class="kv-row"><span class="k">➕ Ingreso</span><span class="v num">${fmt(d.ingreso)}</span></div>
+        <div class="kv-row"><span class="k">🛒 Ventas</span><span class="v num">${fmt(d.ventas)}</span></div>
+        <div class="kv-row"><span class="k">📥 Recaudo</span><span class="v num">${fmt(d.recaudo)}</span></div>
+        <div class="kv-row"><span class="k">🏦 Saldo en caja</span><span class="v num">${fmt(d.saldoEnCaja)}</span></div>
+      </div>`;
+  } else if(tabPanelActiva==='mensuales'){
+    const d = calcularMensualVendedor(vendedorActivoPanel);
+    box.innerHTML = `
+      <div class="card" style="margin-top:14px;">
+        <div class="kv-row"><span class="k">➖ Gastos</span><span class="v num">${fmt(d.gastos)}</span></div>
+        <div class="kv-row"><span class="k">➕ Ingresos</span><span class="v num">${fmt(d.ingresos)}</span></div>
+        <div class="kv-row"><span class="k">🧮 Cartera sin interés</span><span class="v num">${fmt(d.carteraSinInteres)}</span></div>
+        <div class="kv-row"><span class="k">🛒 Ventas</span><span class="v num">${fmt(d.ventas)}</span></div>
+        <div class="kv-row"><span class="k">📥 Recaudo del mes</span><span class="v num">${fmt(d.recaudo)}</span></div>
+        <div class="kv-row"><span class="k">💰 Ganancia</span><span class="v num">${fmt(d.ganancia)}</span></div>
+        <div class="kv-row"><span class="k">📊 Cartera final</span><span class="v num">${fmt(d.carteraFinal)}</span></div>
+      </div>
+      <button class="btn btn-secondary" style="margin-top:10px;" onclick="descargarPdfGastosIngresosVendedor('${vendedorActivoPanel}')">📄 Descargar PDF (gastos e ingresos)</button>`;
+  } else if(tabPanelActiva==='clientes'){
+    const clientes = clientesDe(vendedorActivoPanel);
+    if(clientes.length===0){
+      box.innerHTML = '<div class="empty-state" style="margin-top:14px;"><div class="glyph">✅</div>Sin clientes asignados.</div>';
+      return;
+    }
+    const wrap = document.createElement('div');
+    wrap.className = 'card'; wrap.style.cssText='margin-top:14px; padding:0 16px;';
+    clientes.forEach(c=>{
+      const color = colorCliente(c.id);
+      const inactivo = clienteInactivo(c.id);
+      const pillClass = inactivo?'pill-muted':color==='rojo'?'pill-late':color==='amarillo'?'pill-warn':'pill-ok';
+      const pillText = inactivo?'Terminado':color==='rojo'?'Mora':color==='amarillo'?'Atrasado':'Al día';
+      const row = document.createElement('div');
+      row.className = 'list-row';
+      row.innerHTML = `
+        <div class="avatar dot-${color}">${escapeHtml(iniciales(c.nombre))}</div>
+        <div class="info"><div class="name">${escapeHtml(c.nombre)}</div><div class="meta">${escapeHtml(c.telefono)}</div></div>
+        <span class="pill ${pillClass}">${pillText}</span>
+        <span style="font-size:16px; padding:4px 6px; cursor:pointer;" onclick="event.stopPropagation(); abrirHistorialDesdePanel('${c.id}')">📋</span>
+        <span title="Editar, depurar o eliminar" style="font-size:16px; padding:4px 6px; cursor:pointer;" onclick="event.stopPropagation(); abrirMenuAccionesPanel('${c.id}')">⚙️</span>`;
+      row.onclick = (e)=>{ if(e.target.tagName!=='SPAN'){ state.pantallaAnterior = 'panel-admin'; abrirFicha(c.id); } };
+      wrap.appendChild(row);
+    });
+    box.innerHTML = '';
+    box.appendChild(wrap);
+  }
+}
+
+function abrirHistorialDesdePanel(clienteId){
+  state.clienteActivoId = clienteId;
+  state.pantallaAnterior = 'panel-admin';
+  abrirHistorialPagos();
+}
+
+function abrirMenuAccionesPanel(clienteId){
+  const c = state.clientes.find(cl=>cl.id===clienteId);
+  const backdrop = document.createElement('div');
+  backdrop.className = 'modal-backdrop';
+  backdrop.onclick = (e)=>{ if(e.target===backdrop) backdrop.remove(); };
+  backdrop.innerHTML = `
+    <div class="modal-sheet">
+      <h3>${escapeHtml(c.nombre)}</h3>
+      <div class="sub">Elegí qué querés hacer.</div>
+      <button class="btn btn-secondary" style="text-align:left; padding-left:16px;" id="optEditarPanel">✏️ Editar (datos y crédito)</button>
+      <button class="btn btn-secondary" style="text-align:left; padding-left:16px; margin-top:8px;" id="optDepurarPanel">🧹 Depurar cliente</button>
+      <button class="btn btn-secondary" style="text-align:left; padding-left:16px; margin-top:8px;" id="optEliminarPanel">🗑️ Eliminar cliente</button>
+      <button class="btn btn-secondary" style="margin-top:14px;" onclick="this.closest('.modal-backdrop').remove();">Cancelar</button>
+    </div>`;
+  document.getElementById('app').appendChild(backdrop);
+
+  backdrop.querySelector('#optEditarPanel').onclick = ()=>{
+    backdrop.remove();
+    state.clienteActivoId = clienteId;
+    state.pantallaAnterior = 'panel-admin';
+    abrirMenuEditarCliente();
+  };
+  backdrop.querySelector('#optDepurarPanel').onclick = async ()=>{
+    backdrop.remove();
+    const p = creditoActualDe(clienteId);
+    if(!p){ toast('Este cliente no tiene un crédito activo para depurar'); return; }
+    await depurarCredito(p.id);
+    renderPanelAdmin();
+  };
+  backdrop.querySelector('#optEliminarPanel').onclick = async ()=>{
+    backdrop.remove();
+    if(state.usuarioRol !== 'administrador'){ toast('Esta acción es solo para administradores'); return; }
+    state.clienteActivoId = clienteId;
+    state.pantallaAnterior = 'panel-admin';
+    await eliminarClienteActual();
+    renderPanelAdmin();
+  };
+}
+
+async function descargarPdfGastosIngresosVendedor(vendedorId){
+  const v = cobradoresDelPanel.find(v=>v.id===vendedorId);
+  if(typeof PDFLib === 'undefined'){ toast('No se pudo cargar el generador de PDF'); return; }
+  const { PDFDocument, StandardFonts, rgb } = PDFLib;
+  const doc = await PDFDocument.create();
+  const font = await doc.embedFont(StandardFonts.Helvetica);
+  const fontBold = await doc.embedFont(StandardFonts.HelveticaBold);
+  let page = doc.addPage([595,842]);
+  const marginX = 50; let y = 792;
+  function texto(str, x, size, bold){
+    page.drawText(String(str), { x, y, size: size||10, font: bold?fontBold:font, color: rgb(0.11,0.14,0.19) });
+  }
+  const hoy = todayISO();
+  const movs = state.movimientos.filter(m=>m.vendedorId===vendedorId && esMismoMes(m.fecha, hoy));
+  const ingresos = movs.filter(m=>m.tipo==='ingreso');
+  const egresos = movs.filter(m=>m.tipo==='egreso');
+  texto(`Kart360 — Gastos e ingresos del mes`, marginX, 16, true); y-=20;
+  texto(`Cobrador: ${v ? v.nombre : ''}`, marginX, 11); y-=26;
+  texto(`Total ingresos: ${fmt(ingresos.reduce((a,m)=>a+m.monto,0))}    Total gastos: ${fmt(egresos.reduce((a,m)=>a+m.monto,0))}`, marginX, 11); y-=28;
+  texto('Ingresos', marginX, 13, true); y-=16;
+  texto('Fecha', marginX, 9, true); texto('Concepto', marginX+90, 9, true); texto('Monto', 480, 9, true); y-=14;
+  if(ingresos.length===0){ texto('Sin ingresos registrados este mes', marginX, 9); y-=14; }
+  ingresos.forEach(m=>{ texto(m.fecha, marginX, 9); texto(m.concepto, marginX+90, 9); texto(fmt(m.monto), 480, 9); y-=14; });
+  y-=14;
+  texto('Gastos', marginX, 13, true); y-=16;
+  texto('Fecha', marginX, 9, true); texto('Concepto', marginX+90, 9, true); texto('Monto', 480, 9, true); y-=14;
+  if(egresos.length===0){ texto('Sin gastos registrados este mes', marginX, 9); y-=14; }
+  egresos.forEach(m=>{ texto(m.fecha, marginX, 9); texto(m.concepto, marginX+90, 9); texto(fmt(m.monto), 480, 9); y-=14; });
+  const bytes = await doc.save();
+  const blob = new Blob([bytes], {type:'application/pdf'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `gastos_ingresos_${(v?v.nombre:'cobrador').toLowerCase()}.pdf`;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  toast('PDF descargado');
+}
+
+async function respaldarDatosEnSupabase(){
+  try{
+    const { data: userData } = await supabaseClient.auth.getUser();
+    const datos = { clientes: state.clientes, prestamos: state.prestamos, movimientos: state.movimientos };
+    await supabaseClient.from('respaldos').insert({
+      datos,
+      creado_por: userData && userData.user ? userData.user.id : null
+    });
+    return true;
+  } catch(e){
+    console.error('No se pudo generar el respaldo automático', e);
+    return false;
+  }
+}
+
+async function cerrarSesion(){
+  toast('Guardando copia de seguridad...');
+  const ok = await respaldarDatosEnSupabase();
+  toast(ok ? 'Copia de seguridad guardada' : 'No se pudo guardar la copia, pero se cierra igual');
+  desactivarRealtime();
+  await supabaseClient.auth.signOut();
+  if(state.usuarioRol==='cobrador'){
+    state.requiereAdminParaIngresar = true;
+    nav('login');
+  } else {
+    location.reload();
+  }
+}
+
+function renderLogin(){
+  const bloqueado = state.requiereAdminParaIngresar;
+  document.getElementById('loginNormal').classList.toggle('hidden', bloqueado);
+  document.getElementById('loginBloqueadoSecundario').classList.toggle('hidden', !bloqueado);
+  if(bloqueado){
+    document.getElementById('bloqueSolicitarAutorizacion').classList.remove('hidden');
+    document.getElementById('bloqueEsperandoAutorizacion').classList.add('hidden');
+    document.getElementById('loginBloqueadoError').textContent = '';
+  } else {
+    document.getElementById('codigoIngreso').value = '';
+    document.getElementById('loginError').textContent = '';
+    setRolLogin('vendedor');
+  }
+}
+
+let solicitudAutorizacionId = null;
+let sondeoSolicitudInterval = null;
+
+async function pedirAutorizacionRemota(){
+  const errorEl = document.getElementById('loginBloqueadoError');
+  errorEl.textContent = '';
+  try{
+    const { data, error } = await supabaseClient
+      .from('solicitudes_desbloqueo')
+      .insert({ dispositivo_nombre: navigator.userAgent.slice(0,80) })
+      .select()
+      .single();
+    if(error) throw error;
+    solicitudAutorizacionId = data.id;
+    document.getElementById('bloqueSolicitarAutorizacion').classList.add('hidden');
+    document.getElementById('bloqueEsperandoAutorizacion').classList.remove('hidden');
+    sondeoSolicitudInterval = setInterval(revisarEstadoSolicitud, 4000);
+  } catch(e){
+    console.error('No se pudo crear la solicitud de autorización', e);
+    errorEl.textContent = 'No se pudo enviar la solicitud — revisá tu conexión e intentá de nuevo.';
+  }
+}
+
+async function revisarEstadoSolicitud(){
+  if(!solicitudAutorizacionId) return;
+  const { data, error } = await supabaseClient
+    .from('solicitudes_desbloqueo')
+    .select('estado')
+    .eq('id', solicitudAutorizacionId)
+    .single();
+  if(error){ console.error('Error revisando la solicitud', error); return; }
+  if(data.estado === 'aprobado'){
+    clearInterval(sondeoSolicitudInterval);
+    sondeoSolicitudInterval = null;
+    solicitudAutorizacionId = null;
+    state.requiereAdminParaIngresar = false;
+    toast('✅ Autorización aprobada — ya podés ingresar con tu código');
+    renderLogin();
+  } else if(data.estado === 'rechazado'){
+    clearInterval(sondeoSolicitudInterval);
+    sondeoSolicitudInterval = null;
+    solicitudAutorizacionId = null;
+    document.getElementById('loginBloqueadoError').textContent = 'El administrador rechazó la solicitud.';
+    document.getElementById('bloqueEsperandoAutorizacion').classList.add('hidden');
+    document.getElementById('bloqueSolicitarAutorizacion').classList.remove('hidden');
+  }
+}
+
+function cancelarSolicitudAutorizacion(){
+  if(sondeoSolicitudInterval){ clearInterval(sondeoSolicitudInterval); sondeoSolicitudInterval = null; }
+  solicitudAutorizacionId = null;
+  document.getElementById('bloqueEsperandoAutorizacion').classList.add('hidden');
+  document.getElementById('bloqueSolicitarAutorizacion').classList.remove('hidden');
+}
+
+/* =========================================================
+   INICIO — dashboard + pendientes/cobrados de hoy
+   ========================================================= */
+function ordenarPorPrioridad(clientesIds){
+  return clientesIds.slice().sort((a,b)=>{
+    const ca = state.clientes.find(c=>c.id===a);
+    const cb = state.clientes.find(c=>c.id===b);
+    const oa = (ca && ca.orden!=null) ? ca.orden : 9999;
+    const ob = (cb && cb.orden!=null) ? cb.orden : 9999;
+    if(oa!==ob) return oa-ob;
+    return ca.nombre.localeCompare(cb.nombre);
+  });
+}
+
+/* =========================================================
+   RUTA DE COBRANZA (automática o manual)
+   ========================================================= */
+async function moverClienteRuta(clienteId, direccion){
+  const activos = state.clientes.filter(c=>!clienteInactivo(c.id))
+    .slice().sort((a,b)=> (a.orden??9999)-(b.orden??9999) || a.nombre.localeCompare(b.nombre));
+  const idx = activos.findIndex(c=>c.id===clienteId);
+  const destino = idx + direccion;
+  if(idx<0 || destino<0 || destino>=activos.length) return;
+  activos.forEach((c,i)=> c.orden = i); // normalizar
+  const tmp = activos[idx].orden;
+  activos[idx].orden = activos[destino].orden;
+  activos[destino].orden = tmp;
+  renderClientes();
+  try{
+    await Promise.all(activos.map(c=>
+      supabaseClient.from('clientes').update({ orden_ruta: c.orden }).eq('id', c.id)
+    ));
+  } catch(e){
+    console.error('No se pudo guardar el nuevo orden de ruta', e);
+    toast('⚠️ El orden no se guardó en la base — revisá tu conexión');
+  }
+}
+
+function proximaCuotaAccionable(p){
+  if(p.depurado) return null;
+  return p.cuotas.find(cu => cu.estado==='pendiente') || null;
+}
+
+function cuotasDeHoyPorCliente(){
+  const hoy = todayISO();
+  const hoyPorCliente = {}; // clienteId -> {pendientes:[], cobradas:[]}
+  state.prestamos.forEach(p=>{
+    // Cobrado hoy: cualquier cuota gestionada (pagada, abono o no-pago) con fecha de pago de hoy
+    p.cuotas.forEach(c=>{
+      if(c.fechaPago === hoy){
+        hoyPorCliente[p.clienteId] = hoyPorCliente[p.clienteId] || {pendientes:[], cobradas:[]};
+        hoyPorCliente[p.clienteId].cobradas.push({p,c});
+      }
+    });
+    // Pendiente por cobrar: la próxima cuota accionable, si ya está vencida (hoy o antes)
+    // Esto incluye créditos que ya pasaron su plazo original (más de 30 cuotas) y siguen debiendo.
+    // Los créditos creados/renovados hoy no entran a cobranza hasta el día siguiente.
+    if(p.creadoEn === hoy) return;
+    const accionable = proximaCuotaAccionable(p);
+    if(accionable && accionable.fecha <= hoy){
+      hoyPorCliente[p.clienteId] = hoyPorCliente[p.clienteId] || {pendientes:[], cobradas:[]};
+      hoyPorCliente[p.clienteId].pendientes.push({p, c:accionable});
+    }
+  });
+  return hoyPorCliente;
+}
+
+function setTabInicio(tab){
+  state.inicioTab = tab;
+  document.getElementById('tabPendientes').classList.toggle('active', tab==='pendientes');
+  document.getElementById('tabCobrados').classList.toggle('active', tab==='cobrados');
+  document.getElementById('folderPendientes').classList.toggle('hidden', tab!=='pendientes');
+  document.getElementById('folderCobrados').classList.toggle('hidden', tab!=='cobrados');
+}
+
+function renderInicio(){
+  document.getElementById('inicioDate').textContent = new Date().toLocaleDateString('es-UY', {weekday:'long', day:'numeric', month:'long'});
+  const hoyPorCliente = cuotasDeHoyPorCliente();
+  const idsConPendientes = Object.keys(hoyPorCliente).filter(id=>hoyPorCliente[id].pendientes.length>0 && hoyPorCliente[id].cobradas.length===0);
+  const idsConCobrados = Object.keys(hoyPorCliente).filter(id=>hoyPorCliente[id].cobradas.length>0);
+
+  document.getElementById('tabCountPendientes').textContent = `(${idsConPendientes.length})`;
+  document.getElementById('tabCountCobrados').textContent = `(${idsConCobrados.length})`;
+
+  const boxPend = document.getElementById('listaPendientesHoy');
+  boxPend.innerHTML='';
+  const ordenPend = ordenarPorPrioridad(idsConPendientes);
+  if(ordenPend.length===0){
+    boxPend.innerHTML = '<div class="empty-state" style="padding:20px 0;"><div class="glyph">✅</div><div>No hay cobros pendientes por hoy.</div></div>';
+  } else {
+    ordenPend.forEach(clienteId=>{
+      const cliente = state.clientes.find(c=>c.id===clienteId);
+      const {p,c} = hoyPorCliente[clienteId].pendientes[0];
+      boxPend.appendChild(filaCobro(cliente, p, c, true));
+    });
+  }
+
+  const boxCob = document.getElementById('listaCobradosHoy');
+  boxCob.innerHTML='';
+  if(idsConCobrados.length===0){
+    boxCob.innerHTML = '<div class="empty-state" style="padding:20px 0;"><div class="glyph">🗓️</div><div>Todavía no registraste cobros hoy.</div></div>';
+  } else {
+    idsConCobrados.forEach(clienteId=>{
+      const cliente = state.clientes.find(c=>c.id===clienteId);
+      const cobradas = hoyPorCliente[clienteId].cobradas;
+      const {p,c} = cobradas[0];
+      const montoTotal = cobradas.reduce((a,item)=> a + (item.c.montoPagado||0), 0);
+      boxCob.appendChild(filaCobro(cliente, p, c, false, montoTotal));
+    });
+  }
+}
+
+function iniciales(nombre){ return nombre.split(' ').filter(Boolean).slice(0,2).map(w=>w[0].toUpperCase()).join(''); }
+
+function pillEstadoCuotaHoy(cuota){
+  if(cuota.estado==='pagada') return ['pill-ok','Cobrado'];
+  if(cuota.estado==='abono') return ['pill-warn','Abono'];
+  if(cuota.estado==='no-pago') return ['pill-late','No pagó'];
+  return ['pill-neutral','Pendiente'];
+}
+
+function filaCobro(cliente, prestamo, cuota, esPendiente, montoPagadoHoy){
+  const row = document.createElement('div');
+  row.className = 'list-row' + (esPendiente===false ? ' dimmed' : '');
+  row.onclick = ()=> abrirDetallePrestamo(prestamo.id);
+  const color = colorCliente(cliente.id);
+  const [pillClass, pillText] = pillEstadoCuotaHoy(cuota);
+  const montoMostrado = (montoPagadoHoy!=null) ? montoPagadoHoy : prestamo.cuotaDiaria;
+  row.innerHTML = `
+    <div class="avatar dot-${color}">${escapeHtml(iniciales(cliente.nombre))}</div>
+    <div class="info"><div class="name">${escapeHtml(cliente.nombre)}</div><div class="meta num">${fmt(montoMostrado)} · cuota ${cuota.n}/${prestamo.nCuotas}</div></div>
+    <span class="pill ${pillClass}">${pillText}</span>`;
+  return row;
+}
+
+/* =========================================================
+   CLIENTES — lista, filtro por color / inactivos, búsqueda
+   ========================================================= */
+function setFiltroCliente(f){
+  state.filtroCliente = f;
+  document.querySelectorAll('#screen-clientes .toggle-btn').forEach(b=> b.classList.toggle('active', b.dataset.filtro===f));
+  renderClientes();
+}
+
+function renderClientes(){
+  const q = (document.getElementById('buscadorClientes').value || '').toLowerCase().trim();
+  const hoy = todayISO();
+  let lista = state.clientes.filter(c=>{
+    const matchQ = !q || c.nombre.toLowerCase().includes(q) || c.telefono.includes(q);
+    const inactivo = clienteInactivo(c.id);
+    const color = colorCliente(c.id);
+    const actual = creditoActualDe(c.id);
+    const esNuevoHoy = !!actual && actual.creadoEn === hoy;
+    let matchF = true;
+    if(state.filtroCliente==='inactivo') matchF = inactivo;
+    else if(state.filtroCliente==='nuevos') matchF = esNuevoHoy;
+    else if(state.filtroCliente!=='todos') matchF = !inactivo && !esNuevoHoy && color===state.filtroCliente;
+    else matchF = !inactivo && !esNuevoHoy;
+    return matchQ && matchF;
+  });
+
+  const esVistaRuta = state.filtroCliente==='todos';
+  document.getElementById('bloqueRuta').classList.toggle('hidden', !esVistaRuta);
+  if(esVistaRuta){
+    lista.sort((a,b)=> (a.orden??9999)-(b.orden??9999) || a.nombre.localeCompare(b.nombre));
+  }
+
+  document.getElementById('clientesCount').textContent = `${state.clientes.length} cliente${state.clientes.length===1?'':'s'}`;
+
+  const box = document.getElementById('listaClientes');
+  box.innerHTML = '';
+  if(lista.length===0){
+    box.innerHTML = '<div class="empty-state"><div class="glyph">📇</div><div class="title">Sin resultados</div>Probá con otro filtro, o creá un cliente nuevo con el botón +.</div>';
+    return;
+  }
+  const wrap = document.createElement('div'); wrap.className='card'; wrap.style.padding='0 16px';
+  lista.forEach((c,idx)=>{
+    const color = colorCliente(c.id);
+    const inactivo = clienteInactivo(c.id);
+    const pillClass = inactivo ? 'pill-muted' : color==='rojo' ? 'pill-late' : color==='amarillo' ? 'pill-warn' : 'pill-ok';
+    const pillText = inactivo ? 'Lista de espera' : color==='rojo' ? 'Mora' : color==='amarillo' ? 'Atrasado' : 'Al día';
+    const row = document.createElement('div'); row.className='list-row'; row.onclick=()=>{ state.pantallaAnterior='clientes'; abrirFicha(c.id); };
+
+    let extra = '';
+    if(esVistaRuta && state.modoRuta==='manual'){
+      extra = `
+        <div class="orden-arrows" onclick="event.stopPropagation()">
+          <button class="icon-btn" ${idx===0?'disabled':''} onclick="moverClienteRuta('${c.id}',-1)">▲</button>
+          <button class="icon-btn" ${idx===lista.length-1?'disabled':''} onclick="moverClienteRuta('${c.id}',1)">▼</button>
+        </div>`;
+    } else if(esVistaRuta){
+      extra = `<span class="orden-num">${idx+1}</span>`;
+    }
+
+    row.innerHTML = `
+      ${extra}
+      <div class="avatar dot-${color}">${escapeHtml(iniciales(c.nombre))}</div>
+      <div class="info"><div class="name">${escapeHtml(c.nombre)}</div><div class="meta">${escapeHtml(c.telefono)}</div></div>
+      <span class="pill ${pillClass}">${pillText}</span>`;
+    wrap.appendChild(row);
+  });
+  box.appendChild(wrap);
+}
+
+function abrirNuevoCliente(){
+  state.editandoCliente = false;
+  state.pantallaAnterior = 'clientes';
+  document.getElementById('tituloClienteForm').textContent = 'Nuevo cliente';
+  document.getElementById('bloqueCreditoInicial').classList.remove('hidden');
+  ['ncNombre','ncTelefono','ncDocumento','ncDireccion','ncValor','ncInteres'].forEach(id=> document.getElementById(id).value='');
+  document.getElementById('ncCuotas').value = '30';
+  document.getElementById('ncFecha').value = todayISO();
+  recalcularNC();
+  nav('nuevo-cliente');
+}
+
+function abrirMenuEditarCliente(){
+  const puedeEditarCredito = state.usuarioRol==='administrador' && !!creditoActualDe(state.clienteActivoId);
+  const backdrop = document.createElement('div');
+  backdrop.className = 'modal-backdrop';
+  backdrop.onclick = (e)=>{ if(e.target===backdrop) backdrop.remove(); };
+  backdrop.innerHTML = `
+    <div class="modal-sheet">
+      <h3>✏️ Editar cliente</h3>
+      <div class="sub">Elegí qué querés modificar.</div>
+      <button class="btn btn-secondary" style="text-align:left; padding-left:16px;" id="optEditarDatos">📝 Datos personales</button>
+      ${puedeEditarCredito ? '<button class="btn btn-secondary" style="text-align:left; padding-left:16px; margin-top:8px;" id="optEditarCredito">💳 Crédito (cuotas, interés)</button>' : ''}
+      <button class="btn btn-secondary" style="margin-top:14px;" onclick="this.closest('.modal-backdrop').remove();">Cancelar</button>
+    </div>`;
+  document.getElementById('app').appendChild(backdrop);
+  backdrop.querySelector('#optEditarDatos').onclick = ()=>{ backdrop.remove(); editarCliente(); };
+  if(puedeEditarCredito){
+    backdrop.querySelector('#optEditarCredito').onclick = ()=>{ backdrop.remove(); abrirEditarPrestamoActual(); };
+  }
+}
+
+function editarCliente(){
+  const c = state.clientes.find(cl=>cl.id===state.clienteActivoId);
+  if(!c) return;
+  state.editandoCliente = true;
+  document.getElementById('tituloClienteForm').textContent = 'Editar cliente';
+  document.getElementById('bloqueCreditoInicial').classList.add('hidden');
+  document.getElementById('ncNombre').value = c.nombre;
+  document.getElementById('ncTelefono').value = c.telefono;
+  document.getElementById('ncDocumento').value = c.documento;
+  document.getElementById('ncDireccion').value = c.direccion;
+  nav('nuevo-cliente');
+}
+
+function recalcularNC(){
+  const valor = parseFloat(document.getElementById('ncValor').value) || 0;
+  const interes = parseFloat(document.getElementById('ncInteres').value) || 0;
+  let cuotas = parseInt(document.getElementById('ncCuotas').value) || 0;
+  if(cuotas>30){ cuotas=30; document.getElementById('ncCuotas').value=30; }
+  const total = valor + valor*interes/100;
+  document.getElementById('ncCalcTotal').textContent = fmt(total);
+  document.getElementById('ncCalcCuota').textContent = fmt(cuotas>0 ? total/cuotas : 0);
+}
+
+async function guardarCliente(){
+  const nombre = document.getElementById('ncNombre').value.trim();
+  if(!nombre){ toast('Ingresá al menos el nombre del cliente'); return; }
+  const datos = {
+    nombre,
+    telefono: document.getElementById('ncTelefono').value.trim(),
+    documento: document.getElementById('ncDocumento').value.trim(),
+    direccion: document.getElementById('ncDireccion').value.trim(),
+  };
+  if(state.editandoCliente){
+    const c = state.clientes.find(cl=>cl.id===state.clienteActivoId);
+    Object.assign(c, datos);
+    toast('Cliente actualizado');
+    abrirFicha(c.id);
+    try{
+      const { error } = await supabaseClient.from('clientes').update({
+        nombre: datos.nombre, telefono: datos.telefono,
+        documento: datos.documento, direccion: datos.direccion
+      }).eq('id', c.id);
+      if(error) throw error;
+    } catch(e){
+      console.error('No se pudo actualizar el cliente en Supabase', e);
+      toast('⚠️ No se guardaron estos cambios en la base — revisá tu conexión');
+    }
+    return;
+  }
+  const valor = parseFloat(document.getElementById('ncValor').value) || 0;
+  const interes = parseFloat(document.getElementById('ncInteres').value) || 0;
+  const cuotas = Math.min(parseInt(document.getElementById('ncCuotas').value)||0, 30);
+  const fecha = document.getElementById('ncFecha').value || todayISO();
+  if(valor<=0 || cuotas<=0){ toast('Completá el valor del producto y la cantidad de cuotas'); return; }
+
+  try{
+    const { data: userData } = await supabaseClient.auth.getUser();
+    let vendedorId = userData && userData.user ? userData.user.id : null;
+    if(state.usuarioRol === 'administrador'){
+      // Si lo carga el administrador, se asigna al primer cobrador disponible
+      const { data: cobradorDefault } = await supabaseClient.from('usuarios').select('id').eq('rol','cobrador').limit(1).single();
+      if(cobradorDefault) vendedorId = cobradorDefault.id;
+    }
+    const { data: clienteDB, error: errorCliente } = await supabaseClient
+      .from('clientes')
+      .insert({ nombre: datos.nombre, telefono: datos.telefono, documento: datos.documento, direccion: datos.direccion, orden_ruta: state.clientes.length, vendedor_id: vendedorId })
+      .select()
+      .single();
+    if(errorCliente) throw errorCliente;
+
+    const totalPagar = valor + valor*interes/100;
+    const cuotaDiaria = Math.round(totalPagar / cuotas);
+    const { data: prestamoDB, error: errorPrestamo } = await supabaseClient
+      .from('prestamos')
+      .insert({
+        cliente_id: clienteDB.id, valor, interes, n_cuotas: cuotas,
+        cuota_diaria: cuotaDiaria, fecha_inicio: fecha, creado_en: todayISO()
+      })
+      .select()
+      .single();
+    if(errorPrestamo) throw errorPrestamo;
+
+    const filasCuotas = [];
+    for(let i=0;i<cuotas;i++){
+      filasCuotas.push({ prestamo_id: prestamoDB.id, n: i+1, fecha: addDays(fecha, i), estado: 'pendiente', monto_pagado: 0 });
+    }
+    const { data: cuotasDB, error: errorCuotas } = await supabaseClient.from('cuotas').insert(filasCuotas).select();
+    if(errorCuotas) throw errorCuotas;
+
+    const nuevo = { id: clienteDB.id, ...datos, orden: state.clientes.length, vendedorId: clienteDB.vendedor_id };
+    state.clientes.push(nuevo);
+    const prestamoLocal = {
+      id: prestamoDB.id, clienteId: clienteDB.id, valor, interes, nCuotas: cuotas,
+      cuotaDiaria, fechaInicio: fecha, creadoEn: prestamoDB.creado_en, totalPagar,
+      depurado: false,
+      cuotas: cuotasDB.slice().sort((a,b)=>a.n-b.n).map(cu=>({
+        id: cu.id, n: cu.n, fecha: cu.fecha, estado: cu.estado, montoPagado: 0, fechaPago: null, loteId: null
+      }))
+    };
+    state.prestamos.push(prestamoLocal);
+    toast('Cliente y crédito creados');
+    abrirFicha(nuevo.id);
+  } catch(e){
+    console.error(e);
+    toast('Error al guardar en la base: ' + e.message);
+  }
+}
+
+/* =========================================================
+   FICHA DE CLIENTE
+   ========================================================= */
+function abrirFicha(clienteId){
+  state.clienteActivoId = clienteId;
+  const c = state.clientes.find(cl=>cl.id===clienteId);
+  document.getElementById('fichaNombre').textContent = c.nombre;
+  document.getElementById('fichaTelefono').textContent = c.telefono || 'Sin teléfono';
+  document.getElementById('fichaDoc').textContent = c.documento || '—';
+  document.getElementById('fichaDireccion').textContent = c.direccion || '—';
+
+  const inactivo = clienteInactivo(clienteId);
+  const color = colorCliente(clienteId);
+  const pillClass = inactivo ? 'pill-muted' : color==='rojo' ? 'pill-late' : color==='amarillo' ? 'pill-warn' : 'pill-ok';
+  const pillText = inactivo ? '⏸️ Lista de espera' : color==='rojo' ? '🔴 Mora' : color==='amarillo' ? '🟡 Atrasado' : '🟢 Al día';
+  document.getElementById('fichaPillEstado').innerHTML = `<span class="pill ${pillClass}">${pillText}</span>`;
+
+  const ps = prestamosDe(clienteId);
+  const actual = creditoActualDe(clienteId);
+  const btnNuevoCredito = document.getElementById('btnNuevoCreditoFicha');
+  const bloqueaRenovacion = actual && !prestamoFinalizado(actual) && porcentajePagadoPrestamo(actual) < 0.5;
+  if(bloqueaRenovacion){
+    const pct = Math.round(porcentajePagadoPrestamo(actual)*100);
+    btnNuevoCredito.textContent = `🔒 Renovar (llevás ${pct}% pagado, se necesita 50%)`;
+    btnNuevoCredito.classList.add('btn-secondary');
+    btnNuevoCredito.classList.remove('btn-primary');
+  } else {
+    btnNuevoCredito.textContent = inactivo ? '+ Renovar crédito' : '+ Nuevo crédito / renovar';
+    btnNuevoCredito.classList.add('btn-primary');
+    btnNuevoCredito.classList.remove('btn-secondary');
+  }
+
+  const box = document.getElementById('fichaCreditoActual');
+  box.innerHTML = '';
+  if(!actual){
+    box.innerHTML = '<div class="empty-state" style="padding:18px 0;"><div class="glyph">💵</div><div class="title">Sin créditos</div>Creá el primero con el botón de abajo.</div>';
+  } else {
+    const pagadas = actual.cuotas.filter(cu=>cu.estado==='pagada').length;
+    const pendientesN = actual.cuotas.filter(cu=>cu.estado!=='pagada').length;
+    const atrasadasN = actual.cuotas.filter(cu=>cuotaEstaAtrasada(cu,todayISO())).length;
+    const atrasoPrestamo = atrasadasN>0;
+    box.innerHTML = `
+      <div class="kv-row"><span class="k">Valor del crédito</span><span class="v num">${fmt(actual.valor)}</span></div>
+      <div class="kv-row"><span class="k">Interés</span><span class="v">${actual.interes}%</span></div>
+      <div class="kv-row"><span class="k">Cantidad de cuotas</span><span class="v">${actual.nCuotas}</span></div>
+      <div class="kv-row"><span class="k">Cuota diaria</span><span class="v num">${fmt(actual.cuotaDiaria)}</span></div>
+      <div class="kv-row"><span class="k">Cuotas pagadas</span><span class="v">${pagadas}</span></div>
+      <div class="kv-row"><span class="k">Cuotas pendientes</span><span class="v">${pendientesN}</span></div>
+      <div class="kv-row"><span class="k">Cuotas atrasadas</span><span class="v">${atrasadasN}</span></div>
+      <div class="kv-row"><span class="k">Saldo restante</span><span class="v num">${fmt(saldoRestante(actual))}</span></div>
+      <div class="kv-row"><span class="k">Estado</span><span class="v"><span class="pill ${atrasoPrestamo?'pill-late':(prestamoFinalizado(actual)?'pill-muted':'pill-ok')}">${atrasoPrestamo?'Atrasado':(prestamoFinalizado(actual)?'Finalizado':'Activo')}</span></span></div>
+    `;
+  }
+
+  const puedeEliminar = state.usuarioRol==='administrador' && (!actual || actual.creadoEn === todayISO());
+  document.getElementById('btnEliminarCliente').classList.toggle('hidden', !puedeEliminar);
+  document.getElementById('notaNoEliminable').classList.toggle('hidden', puedeEliminar || state.usuarioRol!=='administrador');
+  document.getElementById('btnVerHistorialPagos').classList.toggle('hidden', !actual || state.pantallaAnterior==='panel-admin');
+  document.getElementById('btnEditarClienteFicha').classList.toggle('hidden', state.pantallaAnterior==='panel-admin');
+  document.getElementById('btnPagoAdelantado').classList.toggle('hidden', !(actual && actual.creadoEn===todayISO()));
+
+  nav('ficha');
+}
+
+/* =========================================================
+   NUEVO PRÉSTAMO (renovación)
+   ========================================================= */
+function porcentajePagadoPrestamo(p){
+  if(!p.totalPagar) return 0;
+  return 1 - (saldoRestante(p) / p.totalPagar);
+}
+
+function abrirNuevoPrestamo(){
+  const c = state.clientes.find(cl=>cl.id===state.clienteActivoId);
+  const actual = creditoActualDe(state.clienteActivoId);
+  if(actual && !prestamoFinalizado(actual)){
+    const pct = porcentajePagadoPrestamo(actual);
+    if(pct < 0.5){
+      toast(`Para renovar necesitás haber pagado al menos el 50% del crédito actual (llevás ${Math.round(pct*100)}%).`);
+      return;
+    }
+  }
+  state.editandoPrestamoId = null;
+  document.getElementById('npTitulo').textContent = 'Nuevo crédito';
+  document.getElementById('npBtnGuardar').textContent = 'Crear crédito';
+  document.getElementById('npCliente').textContent = 'Para: ' + c.nombre;
+  document.getElementById('npValor').value='';
+  document.getElementById('npInteres').value='20';
+  document.getElementById('npCuotas').value='30';
+  document.getElementById('npFecha').value = todayISO();
+  document.getElementById('npManualCheck').checked = false;
+  document.getElementById('npCuotaManual').value='';
+  toggleManual();
+  state.pantallaAnterior = 'ficha';
+  nav('nuevo-prestamo');
+}
+
+function abrirPagoAdelantado(){
+  const actual = creditoActualDe(state.clienteActivoId);
+  if(!actual){ toast('Este cliente todavía no tiene un crédito'); return; }
+  const cu = proximaCuotaAccionable(actual);
+  if(!cu){ toast('Este crédito ya no tiene cuotas pendientes'); return; }
+  const idx = actual.cuotas.indexOf(cu);
+  abrirModalCuota(actual.id, idx);
+}
+
+function abrirHistorialPagos(){
+  const actual = creditoActualDe(state.clienteActivoId);
+  if(!actual){ toast('Este cliente todavía no tiene un crédito'); return; }
+  const c = state.clientes.find(cl=>cl.id===state.clienteActivoId);
+  const hoy = todayISO();
+
+  document.getElementById('histPagosCliente').textContent = c.nombre;
+  document.getElementById('histPagosValor').textContent = fmt(actual.valor);
+  document.getElementById('histPagosCuota').textContent = fmt(actual.cuotaDiaria) + ' / día';
+  document.getElementById('histPagosInicio').textContent = actual.fechaInicio;
+
+  const box = document.getElementById('histPagosLista');
+  box.innerHTML = '';
+
+  // Cuotas ya gestionadas (tienen fecha de pago) — se agrupan por lote si se ingresaron juntas
+  const resueltas = actual.cuotas.filter(cu=> !!cu.fechaPago);
+  const gruposMap = {};
+  const grupos = [];
+  resueltas.forEach(cu=>{
+    if(cu.loteId){
+      if(!gruposMap[cu.loteId]){ gruposMap[cu.loteId] = []; grupos.push(gruposMap[cu.loteId]); }
+      gruposMap[cu.loteId].push(cu);
+    } else {
+      grupos.push([cu]);
+    }
+  });
+
+  // Cuotas todavía sin pagar y ya vencidas (para no perderlas de vista)
+  const pendientesVencidas = actual.cuotas.filter(cu=> cu.estado==='pendiente' && cu.fecha<=hoy);
+
+  const filas = grupos.map(g=>({
+    fecha: g[0].fechaPago,
+    cuotas: g,
+    total: g.reduce((a,cu)=>a+(cu.montoPagado||0),0),
+    resuelta: true
+  })).concat(pendientesVencidas.map(cu=>({ fecha: cu.fecha, cuotas:[cu], total:0, resuelta:false })));
+
+  filas.sort((a,b)=> b.fecha.localeCompare(a.fecha));
+
+  if(filas.length===0){
+    box.innerHTML = '<div class="empty-state" style="padding:20px 0;"><div class="glyph">🗓️</div><div>Este crédito todavía no tiene cuotas vencidas ni pagos hasta hoy.</div></div>';
+    nav('historial-pagos');
+    return;
+  }
+
+  filas.forEach(f=>{
+    const nums = f.cuotas.map(cu=>cu.n).sort((a,b)=>a-b);
+    const numsTxt = nums.length>1 ? `Cuotas ${nums[0]}–${nums[nums.length-1]} (${nums.length})` : `Cuota ${nums[0]}/${actual.nCuotas}`;
+    let pillClass, pillText, montoMostrado;
+    if(!f.resuelta){
+      pillClass='pill-late'; pillText='Atrasada'; montoMostrado = actual.cuotaDiaria;
+    } else if(f.cuotas.length>1){
+      pillClass='pill-ok'; pillText='Cobrado'; montoMostrado = f.total;
+    } else {
+      [pillClass, pillText] = pillEstadoCuotaHoy(f.cuotas[0]);
+      montoMostrado = f.total;
+    }
+    const row = document.createElement('div');
+    row.className = 'list-row';
+    row.style.cursor = 'default';
+    row.innerHTML = `
+      <div class="info">
+        <div class="name">${numsTxt}</div>
+        <div class="meta">${fechaConDia(f.fecha)}</div>
+      </div>
+      <span class="num" style="font-weight:600; margin-right:8px;">${fmt(montoMostrado)}</span>
+      <span class="pill ${pillClass}">${pillText}</span>`;
+    box.appendChild(row);
+  });
+
+  nav('historial-pagos');
+}
+
+function abrirEditarPrestamoActual(){
+  const actual = creditoActualDe(state.clienteActivoId);
+  if(!actual){ toast('Este cliente todavía no tiene un crédito para editar'); return; }
+  const esDeHoy = actual.creadoEn === todayISO();
+  if(esDeHoy || state.usuarioRol==='administrador'){
+    abrirFormularioEdicionPrestamo(actual);
+  } else {
+    pedirAutorizacionAdmin('Este crédito ya tiene más de un día desde que se creó. Para editarlo se necesita la autorización de un administrador.', ()=> abrirFormularioEdicionPrestamo(actual));
+  }
+}
+
+function abrirFormularioEdicionPrestamo(actual){
+  const c = state.clientes.find(cl=>cl.id===state.clienteActivoId);
+  state.editandoPrestamoId = actual.id;
+  document.getElementById('npTitulo').textContent = 'Editar crédito';
+  document.getElementById('npBtnGuardar').textContent = 'Guardar cambios';
+  document.getElementById('npCliente').textContent = 'Para: ' + c.nombre;
+  document.getElementById('npValor').value = actual.valor;
+  document.getElementById('npInteres').value = actual.interes;
+  document.getElementById('npCuotas').value = actual.nCuotas;
+  document.getElementById('npFecha').value = actual.fechaInicio;
+  document.getElementById('npManualCheck').checked = false;
+  document.getElementById('npCuotaManual').value='';
+  toggleManual();
+  nav('nuevo-prestamo');
+}
+
+async function eliminarClienteActual(){
+  const clienteId = state.clienteActivoId;
+  const c = state.clientes.find(cl=>cl.id===clienteId);
+  if(!confirm(`¿Eliminar a ${c.nombre} y su crédito? Esta acción no se puede deshacer.`)) return;
+  state.clientes = state.clientes.filter(cl=>cl.id!==clienteId);
+  state.prestamos = state.prestamos.filter(p=>p.clienteId!==clienteId);
+  toast('Cliente eliminado');
+  nav(state.pantallaAnterior || 'clientes');
+  try{
+    const { error } = await supabaseClient.from('clientes').delete().eq('id', clienteId);
+    if(error) throw error;
+  } catch(e){
+    console.error('No se pudo eliminar el cliente en Supabase', e);
+    toast('⚠️ No se pudo eliminar en la base — revisá tu conexión');
+  }
+}
+
+/* =========================================================
+   AUTORIZACIÓN DE ADMINISTRADOR (para acciones sensibles)
+   ========================================================= */
+function pedirAutorizacionAdmin(mensaje, onConfirm){
+  if(state.usuarioRol !== 'administrador'){
+    toast('Esta acción es solo para administradores');
+    return;
+  }
+  if(!confirm(`${mensaje}\n\n¿Confirmás que autorizás este cambio como administrador?`)) return;
+  onConfirm();
+}
+function toggleManual(){
+  const manual = document.getElementById('npManualCheck').checked;
+  document.getElementById('npManualField').classList.toggle('hidden', !manual);
+  document.getElementById('calcCuotaRow').classList.toggle('reemplazada', manual);
+  document.getElementById('calcCuotaLabel').textContent = manual ? 'Cuota diaria (auto — no se usa)' : 'Cuota diaria (auto)';
+  recalcular();
+}
+function recalcular(){
+  const valor = parseFloat(document.getElementById('npValor').value) || 0;
+  const interes = parseFloat(document.getElementById('npInteres').value) || 0;
+  let cuotas = parseInt(document.getElementById('npCuotas').value) || 0;
+  if(cuotas>30){ cuotas=30; document.getElementById('npCuotas').value=30; }
+  const totalPagar = valor + (valor*interes/100);
+  const manual = document.getElementById('npManualCheck').checked;
+  const cuotaManual = parseFloat(document.getElementById('npCuotaManual').value) || 0;
+  const cuotaAuto = cuotas>0 ? totalPagar/cuotas : 0;
+  document.getElementById('calcCapital').textContent = fmt(valor);
+  document.getElementById('calcInteres').textContent = fmt(valor*interes/100);
+  document.getElementById('calcTotal').textContent = fmt(totalPagar);
+  document.getElementById('calcCuota').textContent = fmt(manual?cuotaManual:cuotaAuto);
+}
+async function guardarPrestamo(){
+  const valor = parseFloat(document.getElementById('npValor').value) || 0;
+  const interes = parseFloat(document.getElementById('npInteres').value) || 0;
+  let cuotas = Math.min(parseInt(document.getElementById('npCuotas').value)||0, 30);
+  const fecha = document.getElementById('npFecha').value || todayISO();
+  const manual = document.getElementById('npManualCheck').checked;
+  const cuotaManual = parseFloat(document.getElementById('npCuotaManual').value) || 0;
+  if(valor<=0 || cuotas<=0){ toast('Completá el valor del producto y la cantidad de cuotas'); return; }
+
+  if(state.editandoPrestamoId){
+    const p = state.prestamos.find(pp=>pp.id===state.editandoPrestamoId);
+    const totalPagar = valor + valor*interes/100;
+    const cuotaDiaria = manual ? cuotaManual : Math.round(totalPagar/cuotas);
+    const cuotasNuevas = [];
+    for(let i=0;i<cuotas;i++){
+      const previa = p.cuotas[i];
+      if(previa && previa.estado!=='pendiente'){
+        cuotasNuevas.push({ ...previa, fecha: addDays(fecha, i) });
+      } else {
+        cuotasNuevas.push({ n:i+1, fecha: addDays(fecha, i), estado:'pendiente', montoPagado:0, fechaPago:null, loteId:null });
+      }
+    }
+      try{
+      await supabaseClient.from('prestamos').update({
+        valor, interes, n_cuotas: cuotas, cuota_diaria: cuotaDiaria, fecha_inicio: fecha
+      }).eq('id', p.id);
+
+      await supabaseClient.from('cuotas').delete().eq('prestamo_id', p.id);
+      const filas = cuotasNuevas.map(cu => ({
+        prestamo_id: p.id, n: cu.n, fecha: cu.fecha, estado: cu.estado,
+        monto_pagado: cu.montoPagado || 0, fecha_pago: cu.fechaPago, lote_id: cu.loteId
+      }));
+      const { data: cuotasDB, error } = await supabaseClient.from('cuotas').insert(filas).select();
+      if(error) throw error;
+
+      p.valor = valor; p.interes = interes; p.nCuotas = cuotas; p.cuotaDiaria = cuotaDiaria;
+      p.fechaInicio = fecha; p.totalPagar = totalPagar;
+      p.cuotas = cuotasDB.slice().sort((a,b)=>a.n-b.n).map(cu=>({
+        id: cu.id, n: cu.n, fecha: cu.fecha, estado: cu.estado,
+        montoPagado: Number(cu.monto_pagado)||0, fechaPago: cu.fecha_pago, loteId: cu.lote_id
+      }));
+      toast('Crédito actualizado');
+      state.editandoPrestamoId = null;
+      abrirFicha(state.clienteActivoId);
+    } catch(e){
+      console.error(e);
+      toast('Error al actualizar el crédito: ' + e.message);
+    }
+    return;
+  }
+
+  try{
+    const totalPagar = valor + valor*interes/100;
+    const cuotaDiaria = manual ? cuotaManual : Math.round(totalPagar/cuotas);
+    const { data: prestamoDB, error: errorPrestamo } = await supabaseClient
+      .from('prestamos')
+      .insert({ cliente_id: state.clienteActivoId, valor, interes, n_cuotas: cuotas, cuota_diaria: cuotaDiaria, fecha_inicio: fecha, creado_en: todayISO() })
+      .select().single();
+    if(errorPrestamo) throw errorPrestamo;
+
+    const filasCuotas = [];
+    for(let i=0;i<cuotas;i++){
+      filasCuotas.push({ prestamo_id: prestamoDB.id, n: i+1, fecha: addDays(fecha, i), estado: 'pendiente', monto_pagado: 0 });
+    }
+    const { data: cuotasDB, error: errorCuotas } = await supabaseClient.from('cuotas').insert(filasCuotas).select();
+    if(errorCuotas) throw errorCuotas;
+
+    const p = {
+      id: prestamoDB.id, clienteId: state.clienteActivoId, valor, interes, nCuotas: cuotas,
+      cuotaDiaria, fechaInicio: fecha, creadoEn: prestamoDB.creado_en, totalPagar, depurado: false,
+      cuotas: cuotasDB.slice().sort((a,b)=>a.n-b.n).map(cu=>({
+        id: cu.id, n: cu.n, fecha: cu.fecha, estado: cu.estado, montoPagado: 0, fechaPago: null, loteId: null
+      }))
+    };
+    state.prestamos.push(p);
+    toast('Crédito creado');
+    abrirFicha(state.clienteActivoId);
+  } catch(e){
+    console.error(e);
+    toast('Error al crear el crédito: ' + e.message);
+  }
+}
+
+/* =========================================================
+   DETALLE DE PRÉSTAMO — ficha de cuotas + WhatsApp + editar/eliminar
+   ========================================================= */
+function pantallaActiva(){
+  const el = document.querySelector('.screen.active');
+  return el ? el.id.replace('screen-','') : 'inicio';
+}
+
+function abrirDetallePrestamo(prestamoId){
+  const actual = pantallaActiva();
+  if(actual !== 'detalle-prestamo'){ state.pantallaAnterior = actual; }
+  state.prestamoActivoId = prestamoId;
+  state.modoSeleccionCuotas = false;
+  state.cuotasSeleccionadas = [];
+  const p = state.prestamos.find(pp=>pp.id===prestamoId);
+  const c = state.clientes.find(cl=>cl.id===p.clienteId);
+  document.getElementById('detCliente').textContent = c.nombre;
+  document.getElementById('detCapital').textContent = fmt(p.valor);
+  document.getElementById('detTotal').textContent = fmt(p.totalPagar);
+  document.getElementById('detCuota').textContent = fmt(p.cuotaDiaria) + ' / día';
+  const pagas = p.cuotas.filter(cu=>cu.estado==='pagada').length;
+  document.getElementById('detPagas').textContent = `${pagas} / ${p.nCuotas}`;
+  document.getElementById('detSaldo').textContent = fmt(saldoRestante(p));
+  const atrasado = p.cuotas.some(cu=>cuotaEstaAtrasada(cu,todayISO()));
+  document.getElementById('detEstado').innerHTML = `<span class="pill ${atrasado?'pill-late':(prestamoFinalizado(p)?'pill-muted':'pill-ok')}">${atrasado?'Atrasado':(prestamoFinalizado(p)?'Finalizado':'Al día')}</span>`;
+  document.getElementById('barraSeleccion').classList.add('hidden');
+  document.getElementById('legendCuotas').classList.remove('hidden');
+  document.getElementById('btnToggleSeleccion').textContent = '☑️ Marcar varias';
+  renderCuotaGrid(p);
+  nav('detalle-prestamo');
+}
+
+function toggleModoSeleccion(){
+  state.modoSeleccionCuotas = !state.modoSeleccionCuotas;
+  state.cuotasSeleccionadas = [];
+  document.getElementById('barraSeleccion').classList.toggle('hidden', !state.modoSeleccionCuotas);
+  document.getElementById('legendCuotas').classList.toggle('hidden', state.modoSeleccionCuotas);
+  document.getElementById('btnToggleSeleccion').textContent = state.modoSeleccionCuotas ? '✕ Salir de selección' : '☑️ Marcar varias';
+  const p = state.prestamos.find(pp=>pp.id===state.prestamoActivoId);
+  renderCuotaGrid(p);
+}
+
+function actualizarBarraSeleccion(){
+  const p = state.prestamos.find(pp=>pp.id===state.prestamoActivoId);
+  const n = state.cuotasSeleccionadas.length;
+  const suma = n * (p ? p.cuotaDiaria : 0);
+  document.getElementById('btnConfirmarSeleccion').textContent = n>0
+    ? `Marcar ${n} cuota${n===1?'':'s'} como pagada${n===1?'':'s'} — ${fmt(suma)}`
+    : 'Marcar 0 como pagadas';
+}
+
+async function confirmarSeleccionMultiple(){
+  const p = state.prestamos.find(pp=>pp.id===state.prestamoActivoId);
+  if(state.cuotasSeleccionadas.length===0){ toast('Seleccioná al menos una cuota'); return; }
+  const loteId = uidReal();
+  const cuotasTocadas = state.cuotasSeleccionadas.map(idx=>{
+    marcarPagoInterno(p.cuotas[idx], 'pagada', p.cuotaDiaria, todayISO(), loteId);
+    return p.cuotas[idx];
+  });
+  await Promise.all(cuotasTocadas.map(c=>sincronizarCuota(c)));
+  const cliente = state.clientes.find(cl=>cl.id===p.clienteId);
+  if(cliente && cliente.telefono) preguntarEnviarComprobante(cliente, p, cuotasTocadas[cuotasTocadas.length-1]);
+  const n = state.cuotasSeleccionadas.length;
+  state.modoSeleccionCuotas = false;
+  state.cuotasSeleccionadas = [];
+  toast(`${n} cuota${n===1?'':'s'} marcada${n===1?'':'s'} como pagada${n===1?'':'s'}`);
+  nav('inicio');
+  setTabInicio('cobrados');
+}
+
+function distribuirPago(p, montoTotal){
+  let restante = montoTotal;
+  const hoy = todayISO();
+  const loteId = uidReal();
+  let cuotasCompletadas = 0, cuotasConAbono = 0;
+  for(const cu of p.cuotas){
+    if(restante<=0) break;
+    if(cu.estado==='pagada') continue;
+    const yaCubierto = (cu.estado==='abono') ? (cu.montoPagado||0) : 0;
+    const falta = p.cuotaDiaria - yaCubierto;
+    if(restante >= falta){
+      marcarPagoInterno(cu, 'pagada', p.cuotaDiaria, hoy, loteId);
+      restante -= falta;
+      cuotasCompletadas++;
+    } else {
+      marcarPagoInterno(cu, 'abono', yaCubierto + restante, hoy, loteId);
+      cuotasConAbono++;
+      restante = 0;
+    }
+  }
+  return { cuotasCompletadas, cuotasConAbono, restante };
+}
+
+function mensajeDistribucion(resultado){
+  let mensaje = '';
+  if(resultado.cuotasCompletadas>0) mensaje += `${resultado.cuotasCompletadas} cuota${resultado.cuotasCompletadas===1?'':'s'} completada${resultado.cuotasCompletadas===1?'':'s'}`;
+  if(resultado.cuotasConAbono>0) mensaje += (mensaje?' y ':'') + `1 con abono parcial`;
+  if(resultado.restante>0) mensaje += ` (sobraron ${fmt(resultado.restante)} sin aplicar)`;
+  return mensaje || 'Pago registrado';
+}
+
+function renderCuotaGrid(p){
+  const hoy = todayISO();
+  const grid = document.getElementById('cuotaGrid');
+  grid.innerHTML = '';
+  p.cuotas.forEach((cu, idx)=>{
+    const chip = document.createElement('div');
+    let cls = cu.estado;
+    if(cu.estado==='pendiente' && cuotaEstaAtrasada(cu,hoy)) cls = 'vencida';
+    chip.className = 'cuota-chip ' + cls;
+    if(cu.fecha===hoy) chip.classList.add('hoy');
+    const montoTxt = (cu.montoPagado>0) ? `<div class="monto">${Math.round(cu.montoPagado).toLocaleString('es-UY')}</div>` : '';
+    chip.innerHTML = `<div class="n">${cu.n}</div>${montoTxt}`;
+    chip.title = `Cuota ${cu.n} — ${cu.fecha}` + (cu.montoPagado>0 ? ` — ${cu.estado==='abono'?'Abonado':'Pagado'}: ${fmt(cu.montoPagado)}` : '');
+
+    const esFutura = cu.fecha > hoy;
+
+    if(state.modoSeleccionCuotas){
+      const enOrden = esSeleccionableEnOrden(p, idx);
+      if(cu.estado!=='pendiente'){
+        chip.classList.add('no-seleccionable');
+        chip.onclick = ()=> toast('Esta cuota ya fue gestionada');
+      } else if(!enOrden){
+        chip.classList.add('no-seleccionable');
+        chip.onclick = ()=> toast('No podés saltear el orden: marcá primero las cuotas anteriores');
+      } else {
+        if(state.cuotasSeleccionadas.includes(idx)) chip.classList.add('seleccionada');
+        chip.onclick = ()=>{
+          const i = state.cuotasSeleccionadas.indexOf(idx);
+          if(i>=0) state.cuotasSeleccionadas.splice(i,1); else state.cuotasSeleccionadas.push(idx);
+          actualizarBarraSeleccion();
+          renderCuotaGrid(p);
+        };
+      }
+    } else if(esFutura && cu.estado==='pendiente'){
+      chip.classList.add('no-seleccionable');
+      chip.onclick = ()=> toast('Esta cuota todavía no vence, no se puede gestionar antes de la fecha');
+    } else {
+      chip.onclick = ()=> abrirModalCuota(p.id, idx);
+    }
+    grid.appendChild(chip);
+  });
+}
+
+function esSeleccionableEnOrden(p, idx){
+  for(let i=0;i<idx;i++){
+    const anterior = p.cuotas[i];
+    if(anterior.estado==='pendiente' && !state.cuotasSeleccionadas.includes(i)) return false;
+  }
+  return true;
+}
+
+function telefonoWhatsapp(telefono){
+  let t = (telefono||'').replace(/\D/g,'');
+  if(t.startsWith('0')) t = t.slice(1);
+  if(!t.startsWith('598')) t = '598'+t;
+  return t;
+}
+
+function montoPagadoHoyPorPrestamo(prestamo){
+  const hoy = todayISO();
+  return prestamo.cuotas.reduce((total,cu)=> cu.fechaPago===hoy ? total+(cu.montoPagado||0) : total, 0);
+}
+
+function preguntarEnviarComprobante(cliente, prestamo, cuota){
+  if(!cliente.telefono) return;
+  const bar = document.createElement('div');
+  bar.style.cssText = 'position:fixed; bottom:78px; left:50%; transform:translateX(-50%); background:#fff; border:1px solid var(--line); border-radius:14px; box-shadow:0 8px 24px rgba(0,0,0,0.18); padding:9px 10px; display:flex; gap:6px; align-items:center; z-index:60; max-width:92%;';
+  bar.innerHTML = `
+    <span style="font-size:11.5px; color:var(--ink-soft); margin-right:2px; white-space:nowrap;">¿Avisarle al cliente?</span>
+    <button id="btnEnviarAhoraMini" style="font-size:11.5px; padding:5px 9px; border-radius:8px; border:none; background:var(--teal); color:#fff; cursor:pointer; white-space:nowrap;">💬 Enviar</button>
+    <button id="btnEnviarDespuesMini" style="font-size:11.5px; padding:5px 9px; border-radius:8px; border:1px solid var(--line); background:#fff; color:var(--ink-soft); cursor:pointer; white-space:nowrap;">Después</button>
+  `;
+  document.body.appendChild(bar);
+  const cerrar = ()=>{ if(bar.parentNode) bar.remove(); };
+  bar.querySelector('#btnEnviarAhoraMini').onclick = ()=>{ enviarComprobanteWhatsapp(cliente, prestamo, cuota); cerrar(); };
+  bar.querySelector('#btnEnviarDespuesMini').onclick = cerrar;
+  setTimeout(cerrar, 9000);
+}
+
+function enviarComprobanteWhatsapp(cliente, prestamo, cuota){
+  const tel = telefonoWhatsapp(cliente.telefono);
+  const saldo = saldoRestante(prestamo);
+  const totalHoy = montoPagadoHoyPorPrestamo(prestamo);
+  const msg = `Hola ${cliente.nombre.split(' ')[0]}! Te confirmamos el pago de hoy (${cuota.fechaPago}) por un total de ${fmt(totalHoy)}. Saldo restante del crédito: ${fmt(saldo)}. ¡Gracias!`;
+  const url = `https://wa.me/${tel}?text=${encodeURIComponent(msg)}`;
+  window.open(url, '_blank');
+}
+
+function abrirModalCuota(prestamoId, idx){
+  const p = state.prestamos.find(pp=>pp.id===prestamoId);
+  const cu = p.cuotas[idx];
+  const cliente = state.clientes.find(cl=>cl.id===p.clienteId);
+  const hoy = todayISO();
+  const yaRegistrada = cu.estado==='pagada' || cu.estado==='abono' || cu.estado==='no-pago';
+  const anteriorCompleta = idx===0 || p.cuotas[idx-1].estado!=='pendiente';
+  const bloqueadaPorOrden = !yaRegistrada && !anteriorCompleta;
+  const bloqueadaPorTiempo = yaRegistrada && cu.fechaPago !== hoy;
+  const backdrop = document.createElement('div');
+  backdrop.className='modal-backdrop';
+  backdrop.onclick = (e)=>{ if(e.target===backdrop) backdrop.remove(); };
+  backdrop.innerHTML = `
+    <div class="modal-sheet">
+      <h3>Cuota ${cu.n} de ${p.nCuotas}</h3>
+      <div class="sub">Vence el ${cu.fecha} · ${fmt(p.cuotaDiaria)}${cu.fechaPago ? ' · Gestionada el '+cu.fechaPago : ''}</div>
+
+      ${bloqueadaPorOrden ? `
+        <div class="alert-row">
+          Todavía no completaste la cuota ${p.cuotas[idx-1].n}. Cobrala primero para poder registrar esta — no se puede saltar el orden de las cuotas.
+        </div>
+      ` : bloqueadaPorTiempo ? `
+        <div class="alert-row">
+          🔒 Esta cuota se gestionó el ${cu.fechaPago}, un día distinto a hoy. Ya no se puede modificar, eliminar ni volver a pendiente.
+        </div>
+      ` : yaRegistrada ? `
+        <div class="alert-row" style="background:var(--teal-tint); border-color:rgba(31,95,91,0.25); color:var(--teal-dark);">
+          Esta cuota ya tiene un pago registrado hoy. Para volver a cobrarla, primero tocá "Volver a pendiente".
+        </div>
+        <button class="btn btn-secondary" id="btnPendiente" style="margin-top:12px;">↺ Volver a pendiente</button>
+      ` : `
+        <div class="btn-block-row">
+          <button class="btn btn-primary" id="btnPagada">✅ Pagado</button>
+          <button class="btn btn-gold" id="btnAbono">🟡 Abono</button>
+        </div>
+        <div class="btn-block-row">
+          <button class="btn btn-danger" id="btnNoPago">❌ No pagó</button>
+        </div>
+        <div class="field" id="abonoField" style="margin-top:14px; display:none;">
+          <label>Monto del abono</label>
+          <input type="number" id="montoAbono">
+          <span class="kv-sub" style="margin-top:6px;">Si alcanza para más, el sobrante se aplica solo a las próximas cuotas pendientes (empezando por la más vieja).</span>
+        </div>
+      `}
+
+      ${(cu.estado==='pagada' || cu.estado==='abono') ? `<button class="btn btn-whatsapp" id="btnWhatsapp" style="margin-top:12px;">💬 Enviar comprobante por WhatsApp</button>` : ''}
+
+      <button class="btn btn-secondary" style="margin-top:16px;" id="btnCerrar">Cancelar</button>
+    </div>`;
+  document.getElementById('app').appendChild(backdrop);
+
+  if(!bloqueadaPorOrden && !bloqueadaPorTiempo && !yaRegistrada){
+    backdrop.querySelector('#btnPagada').onclick = async ()=>{
+      marcarPagoInterno(cu,'pagada',p.cuotaDiaria,todayISO());
+      await sincronizarCuota(cu);
+      if(cliente.telefono) preguntarEnviarComprobante(cliente, p, cu);
+      finCambioCuota(p, backdrop, true, 'Cobro registrado', 'cobrados');
+    };
+    backdrop.querySelector('#btnNoPago').onclick = async ()=>{
+      cu.estado='no-pago'; cu.montoPagado=0; cu.fechaPago=todayISO(); cu.loteId=uidReal();
+      await sincronizarCuota(cu);
+      finCambioCuota(p, backdrop, true, 'Cliente marcado como no pagó', 'cobrados');
+    };
+    backdrop.querySelector('#btnAbono').onclick = async function segundoClick(){
+      const campo = backdrop.querySelector('#abonoField');
+      if(campo.style.display!=='block'){
+        campo.style.display='block';
+        backdrop.querySelector('#btnAbono').textContent = '🟡 Confirmar abono';
+      } else {
+        const val = parseFloat(backdrop.querySelector('#montoAbono').value) || Math.round(p.cuotaDiaria/2);
+        const cuotasAntes = p.cuotas.map(c2=>({id:c2.id, estado:c2.estado, montoPagado:c2.montoPagado, fechaPago:c2.fechaPago, loteId:c2.loteId}));
+        const resultado = distribuirPago(p, val);
+        const cuotasASincronizar = p.cuotas.filter((c2,idx)=>{
+          const antes = cuotasAntes[idx];
+          return antes.estado!==c2.estado || antes.montoPagado!==c2.montoPagado;
+        });
+        await Promise.all(cuotasASincronizar.map(c2=>sincronizarCuota(c2)));
+        if(cliente.telefono) preguntarEnviarComprobante(cliente, p, cu);
+        backdrop.remove();
+        renderCuotaGrid(p);
+        toast(mensajeDistribucion(resultado));
+        nav('inicio');
+        setTabInicio('cobrados');
+      }
+    };
+  } else if(yaRegistrada && !bloqueadaPorTiempo){
+    backdrop.querySelector('#btnPendiente').onclick = async ()=>{
+      const lote = cu.loteId;
+      let afectadas = 0;
+      const cuotasLiberadas = [];
+      p.cuotas.forEach(c2=>{
+        if(lote && c2.loteId===lote && c2.estado!=='pendiente'){
+          c2.estado='pendiente'; c2.montoPagado=0; c2.fechaPago=null; c2.loteId=null;
+          afectadas++; cuotasLiberadas.push(c2);
+        }
+      });
+      if(afectadas===0){ cu.estado='pendiente'; cu.montoPagado=0; cu.fechaPago=null; cu.loteId=null; afectadas=1; cuotasLiberadas.push(cu); }
+      await Promise.all(cuotasLiberadas.map(c2=>sincronizarCuota(c2)));
+      const mensaje = afectadas>1 ? `${afectadas} cuotas liberadas, ya podés volver a cobrarlas` : 'Cuota liberada, ya podés volver a cobrarla';
+      finCambioCuota(p, backdrop, false, mensaje);
+    };
+  }
+
+  if(backdrop.querySelector('#btnWhatsapp')){
+    backdrop.querySelector('#btnWhatsapp').onclick = ()=> enviarComprobanteWhatsapp(cliente, p, cu);
+  }
+  backdrop.querySelector('#btnCerrar').onclick = ()=> backdrop.remove();
+}
+
+function finCambioCuota(p, backdrop, irAInicio, mensaje, tabDestino){
+  backdrop.remove();
+  renderCuotaGrid(p);
+  if(irAInicio){
+    toast(mensaje || 'Cobro registrado');
+    nav('inicio');
+    setTabInicio(tabDestino || 'pendientes');
+  } else {
+    toast(mensaje || 'Cuota actualizada');
+    abrirDetallePrestamo(p.id);
+  }
+}
+
+/* =========================================================
+   CAJA — ingresos y egresos
+   ========================================================= */
+function setTipoMov(t){
+  state.tipoMovNuevo = t;
+  document.getElementById('tipoIngreso').classList.toggle('active', t==='ingreso');
+  document.getElementById('tipoEgreso').classList.toggle('active', t==='egreso');
+}
+async function guardarMovimiento(){
+  const concepto = document.getElementById('movConcepto').value.trim();
+  const monto = parseFloat(document.getElementById('movMonto').value) || 0;
+  if(!concepto){ toast('El concepto es obligatorio — describí de qué se trata este movimiento'); return; }
+  if(monto<=0){ toast('Ingresá un monto mayor a $0'); return; }
+
+  if(state.editandoMovId){
+    const m = state.movimientos.find(mv=>mv.id===state.editandoMovId);
+    m.tipo = state.tipoMovNuevo; m.concepto = concepto; m.monto = monto;
+    state.editandoMovId = null;
+    document.getElementById('btnGuardarMov').textContent = 'Registrar movimiento';
+    toast('Movimiento actualizado');
+    try{
+      const { error } = await supabaseClient.from('movimientos').update({ tipo: m.tipo, concepto: m.concepto, monto: m.monto }).eq('id', m.id);
+      if(error) throw error;
+    } catch(e){
+      console.error('No se pudo actualizar el movimiento en Supabase', e);
+      toast('⚠️ No se guardó el cambio en la base — revisá tu conexión');
+    }
+  } else {
+    try{
+      const { data: userData } = await supabaseClient.auth.getUser();
+      const vendedorId = state.usuarioRol==='cobrador' && userData && userData.user ? userData.user.id : null;
+      const { data, error } = await supabaseClient.from('movimientos')
+        .insert({ tipo: state.tipoMovNuevo, concepto, monto, fecha: todayISO(), vendedor_id: vendedorId })
+        .select().single();
+      if(error) throw error;
+      state.movimientos.push({ id: data.id, tipo: data.tipo, concepto: data.concepto, monto: Number(data.monto), fecha: data.fecha, vendedorId: data.vendedor_id });
+      toast('Movimiento registrado');
+    } catch(e){
+      console.error(e);
+      toast('Error al guardar el movimiento: ' + e.message);
+      return;
+    }
+  }
+  document.getElementById('movConcepto').value=''; document.getElementById('movMonto').value='';
+  setTipoMov('ingreso');
+  renderMovimientos();
+}
+function editarMovimiento(id){
+  const m = state.movimientos.find(mv=>mv.id===id);
+  if(!m) return;
+  state.editandoMovId = id;
+  setTipoMov(m.tipo);
+  document.getElementById('movConcepto').value = m.concepto;
+  document.getElementById('movMonto').value = m.monto;
+  document.getElementById('btnGuardarMov').textContent = 'Guardar cambios';
+  document.getElementById('movConcepto').scrollIntoView({behavior:'smooth', block:'center'});
+}
+async function eliminarMovimiento(id){
+  if(!confirm('¿Eliminar este movimiento?')) return;
+  state.movimientos = state.movimientos.filter(mv=>mv.id!==id);
+  if(state.editandoMovId===id){ state.editandoMovId=null; document.getElementById('btnGuardarMov').textContent='Registrar movimiento'; }
+  toast('Movimiento eliminado');
+  renderMovimientos();
+  try{
+    const { error } = await supabaseClient.from('movimientos').delete().eq('id', id);
+    if(error) throw error;
+  } catch(e){
+    console.error('No se pudo eliminar el movimiento en Supabase', e);
+    toast('⚠️ No se pudo eliminar en la base — revisá tu conexión');
+  }
+}
+/* =========================================================
+   CAJA / MOVIMIENTOS / REPORTES (pantallas separadas)
+   ========================================================= */
+function renderCaja(){
+  const hoy = todayISO();
+  document.getElementById('cajaDate').textContent = new Date().toLocaleDateString('es-UY', {day:'numeric', month:'short'});
+
+  const recaudoHoy = totalRecaudadoHoy();
+  const ingresosAdicHoy = state.movimientos.filter(m=>m.tipo==='ingreso' && m.fecha===hoy).reduce((a,m)=>a+m.monto,0);
+  const egresosHoy = state.movimientos.filter(m=>m.tipo==='egreso' && m.fecha===hoy).reduce((a,m)=>a+m.monto,0);
+  document.getElementById('cajaSaldoAnterior').textContent = fmt(saldoAlDiaAnterior());
+  document.getElementById('cajaRecaudo').textContent = fmt(recaudoHoy);
+  document.getElementById('cajaVentas').textContent = fmt(ventasDelDia());
+  document.getElementById('cajaEgresos').textContent = fmt(egresosHoy);
+  document.getElementById('cajaIngresosAdic').textContent = fmt(ingresosAdicHoy);
+  const saldoEl = document.getElementById('cajaSaldoReal');
+  const saldo = saldoEnCajaReal();
+  saldoEl.textContent = fmt(saldo);
+  saldoEl.style.color = saldo < 0 ? 'var(--brick)' : 'var(--green)';
+
+  const hoyPorCliente = cuotasDeHoyPorCliente();
+  const idsHoyTotal = Object.keys(hoyPorCliente);
+  const cobrados = idsHoyTotal.filter(id=>hoyPorCliente[id].cobradas.length>0).length;
+  const noCobrados = idsHoyTotal.length - cobrados;
+  document.getElementById('resCobrados').textContent = cobrados;
+  document.getElementById('resNoCobrados').textContent = noCobrados;
+  const { nuevos, renovados } = creditosHoy();
+  document.getElementById('resNuevos').textContent = nuevos;
+  document.getElementById('resRenovados').textContent = renovados;
+  document.getElementById('resTotalClientes').textContent = state.clientes.length;
+}
+
+function renderMovimientos(){
+  const boxMov = document.getElementById('listaMovimientos');
+  boxMov.innerHTML = '';
+  const movs = state.movimientos.slice().sort((a,b)=> b.fecha.localeCompare(a.fecha));
+  if(movs.length===0){
+    boxMov.innerHTML = '<div class="empty-state" style="padding:20px 0;">Sin movimientos registrados todavía.</div>';
+  } else {
+    movs.forEach(m=>{
+      const row = document.createElement('div'); row.className='mov-row';
+      row.innerHTML = `<div><span class="tag ${m.tipo}">${m.tipo}</span>${escapeHtml(m.concepto)}<div style="font-size:11px; color:var(--muted); margin-top:2px;">${m.fecha}</div></div>
+        <div class="mov-actions">
+          <span class="num" style="font-weight:600;">${m.tipo==='egreso'?'-':''}${fmt(m.monto)}</span>
+          <button class="icon-btn" title="Editar" onclick="editarMovimiento('${m.id}')">✏️</button>
+          <button class="icon-btn" title="Eliminar" onclick="eliminarMovimiento('${m.id}')">🗑️</button>
+        </div>`;
+      boxMov.appendChild(row);
+    });
+  }
+}
+
+function renderReportes(){
+  document.getElementById('reportesDate').textContent = new Date().toLocaleDateString('es-UY', {day:'numeric', month:'short'});
+}
+
+/* =========================================================
+   BACKUP / RESTORE
+   ========================================================= */
+async function contarSolicitudesPendientes(){
+  if(state.usuarioRol !== 'administrador') return;
+  const { data, error } = await supabaseClient.from('solicitudes_desbloqueo').select('id').eq('estado','pendiente');
+  if(error){ console.error('No se pudo revisar solicitudes pendientes', error); return; }
+  const badge = document.getElementById('badgePanelSolicitudes');
+  if(badge){
+    if(data && data.length>0){ badge.textContent = data.length; badge.classList.remove('hidden'); }
+    else badge.classList.add('hidden');
+  }
+}
+
+async function abrirSolicitudesDesbloqueo(){
+  const backdrop = document.createElement('div');
+  backdrop.className='modal-backdrop';
+  backdrop.onclick = (e)=>{ if(e.target===backdrop) backdrop.remove(); };
+  backdrop.innerHTML = `
+    <div class="modal-sheet">
+      <h3>🔔 Solicitudes de desbloqueo</h3>
+      <div class="sub">Cuando el dispositivo del cobrador cierra sesión y pide autorización, aparece acá.</div>
+      <div id="listaSolicitudesModal"><div class="empty-state" style="padding:20px 0;">Cargando...</div></div>
+      <button class="btn btn-secondary" style="margin-top:16px;" onclick="this.closest('.modal-backdrop').remove();">Cerrar</button>
+    </div>`;
+  document.getElementById('app').appendChild(backdrop);
+
+  const { data, error } = await supabaseClient
+    .from('solicitudes_desbloqueo')
+    .select('*')
+    .eq('estado','pendiente')
+    .order('creado_en', { ascending:false });
+
+  const box = backdrop.querySelector('#listaSolicitudesModal');
+  if(error){ box.innerHTML = '<div class="empty-state" style="padding:20px 0;">No se pudo cargar la lista.</div>'; return; }
+  if(!data || data.length===0){
+    box.innerHTML = '<div class="empty-state" style="padding:20px 0;"><div class="glyph">✅</div><div>No hay solicitudes pendientes.</div></div>';
+    return;
+  }
+  box.innerHTML = '';
+  data.forEach(s=>{
+    const fecha = new Date(s.creado_en).toLocaleString('es-UY');
+    const row = document.createElement('div');
+    row.className = 'list-row';
+    row.style.cursor = 'default';
+    row.innerHTML = `
+      <div class="info"><div class="name">Pedido de acceso</div><div class="meta">${fecha}</div></div>
+      <div class="row-actions" style="display:flex; gap:6px;">
+        <button class="btn btn-primary btn-sm" style="padding:6px 10px; font-size:12px;" id="apr-${s.id}">✅ Aprobar</button>
+        <button class="btn btn-secondary btn-sm" style="padding:6px 10px; font-size:12px;" id="rec-${s.id}">Rechazar</button>
+      </div>`;
+    box.appendChild(row);
+    row.querySelector(`#apr-${s.id}`).onclick = ()=> resolverSolicitud(s.id, 'aprobado', row);
+    row.querySelector(`#rec-${s.id}`).onclick = ()=> resolverSolicitud(s.id, 'rechazado', row);
+  });
+}
+
+async function resolverSolicitud(id, estado, row){
+  const { data: userData } = await supabaseClient.auth.getUser();
+  const { error } = await supabaseClient.from('solicitudes_desbloqueo').update({
+    estado, resuelto_en: new Date().toISOString(), resuelto_por: userData && userData.user ? userData.user.id : null
+  }).eq('id', id);
+  if(error){ toast('⚠️ No se pudo actualizar la solicitud'); return; }
+  toast(estado==='aprobado' ? 'Dispositivo autorizado' : 'Solicitud rechazada');
+  row.remove();
+  contarSolicitudesPendientes();
+}
+
+async function abrirHistorialRespaldos(){
+  if(state.usuarioRol !== 'administrador'){ toast('Esta acción es solo para administradores'); return; }
+  const backdrop = document.createElement('div');
+  backdrop.className='modal-backdrop';
+  backdrop.onclick = (e)=>{ if(e.target===backdrop) backdrop.remove(); };
+  backdrop.innerHTML = `
+    <div class="modal-sheet">
+      <h3>🗄️ Copias automáticas</h3>
+      <div class="sub">Se genera una copia sola cada vez que alguien cierra caja. Podés descargar cualquiera de las últimas.</div>
+      <div id="listaRespaldosModal"><div class="empty-state" style="padding:20px 0;">Cargando...</div></div>
+      <button class="btn btn-secondary" style="margin-top:16px;" id="btnCerrarRespaldos">Cerrar</button>
+    </div>`;
+  document.getElementById('app').appendChild(backdrop);
+  backdrop.querySelector('#btnCerrarRespaldos').onclick = ()=> backdrop.remove();
+
+  try{
+    const { data, error } = await supabaseClient
+      .from('respaldos')
+      .select('id, creado_en, datos')
+      .order('creado_en', { ascending: false })
+      .limit(20);
+    if(error) throw error;
+
+    const box = backdrop.querySelector('#listaRespaldosModal');
+    box.innerHTML = '';
+    if(!data || data.length===0){
+      box.innerHTML = '<div class="empty-state" style="padding:20px 0;">Todavía no hay copias guardadas. Se va a crear la primera la próxima vez que alguien cierre caja.</div>';
+      return;
+    }
+    data.forEach(r=>{
+      const fecha = new Date(r.creado_en).toLocaleString('es-UY');
+      const cantClientes = (r.datos.clientes||[]).length;
+      const row = document.createElement('div');
+      row.className = 'list-row';
+      row.style.cursor = 'default';
+      row.innerHTML = `
+        <div class="info"><div class="name">${fecha}</div><div class="meta">${cantClientes} clientes guardados</div></div>
+        <button class="btn btn-secondary btn-sm" id="desc-${r.id}">⤓ Bajar</button>`;
+      box.appendChild(row);
+      row.querySelector(`#desc-${r.id}`).onclick = ()=>{
+        const blob = new Blob([JSON.stringify(r.datos, null, 2)], {type:'application/json'});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = `respaldo_kart360_${r.creado_en.slice(0,10)}.json`;
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      };
+    });
+  } catch(e){
+    console.error(e);
+    backdrop.querySelector('#listaRespaldosModal').innerHTML = '<div class="empty-state" style="padding:20px 0;">No se pudo cargar el historial.</div>';
+  }
+}
+
+function descargarBackup(){
+  const data = JSON.stringify({clientes:state.clientes, prestamos:state.prestamos, movimientos:state.movimientos}, null, 2);
+  const blob = new Blob([data], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href=url; a.download='backup_kart360_'+todayISO()+'.json';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  toast('Copia de seguridad descargada');
+}
+/* =========================================================
+   TOAST
+   ========================================================= */
+let toastTimeout;
+function toast(msg){
+  const t = document.getElementById('toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastTimeout); toastTimeout = setTimeout(()=> t.classList.remove('show'), 2400);
+}
+
+/* =========================================================
+   INIT
+   ========================================================= */
+document.getElementById('codigoIngreso').addEventListener('keydown', e=>{
+  if(e.key==='Enter') intentarIngresar();
+});
+</script>
+</body>
+</html>
