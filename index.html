@@ -304,6 +304,11 @@
         <span onclick="abrirOrganizarRuta()" style="font-size:13px; font-weight:600; color:var(--teal); cursor:pointer; white-space:nowrap;">🔀 Organizar ruta</span>
       </div>
     </div>
+    <div id="selectorRutaAdmin" class="hidden" style="padding:0 20px 10px 20px;">
+      <select id="selRutaAdmin" onchange="cambiarVistaRutaAdmin(this.value)" style="width:100%; padding:9px 12px; border-radius:10px; border:1.5px solid var(--teal); font-size:13px; font-weight:600; color:var(--teal); background:var(--teal-tint);">
+        <option value="">📍 Viendo: todas las rutas juntas</option>
+      </select>
+    </div>
     <div class="content">
       <div class="toggle-row">
         <div class="toggle-btn active" id="tabPendientes" onclick="setTabInicio('pendientes')">📋 Pendientes <span id="tabCountPendientes">(0)</span></div>
@@ -477,7 +482,8 @@
 
   <!-- ===================== CAJA (resumen del día) ===================== -->
   <div class="screen" id="screen-caja">
-    <div class="topbar" style="padding:12px 20px 10px 20px;">
+    <div class="topbar" style="padding:12px 20px 10px 20px; flex-direction:column; align-items:flex-start; gap:2px;">
+      <div id="cajaNombreRuta" style="font-family:'Spectral', serif; font-weight:600; font-size:19px; color:var(--ink);">Caja</div>
       <div style="display:flex; align-items:baseline; gap:8px;">
         <span id="cajaDate" style="font-size:11px; color:var(--muted); font-weight:600;">Hoy</span>
       </div>
@@ -578,10 +584,10 @@
       </div>
 
       <div class="toggle-row">
-        <div class="toggle-btn active" id="tabPanelDiarios" onclick="setTabPanel('diarios')">📅 Diarios</div>
-        <div class="toggle-btn" id="tabPanelMensuales" onclick="setTabPanel('mensuales')">📆 Mensuales</div>
-        <div class="toggle-btn" id="tabPanelClientes" onclick="setTabPanel('clientes')">👥 Clientes</div>
-        <div class="toggle-btn" id="tabPanelDepurados" onclick="setTabPanel('depurados')">🗑️ Depurados</div>
+        <div class="toggle-btn active" id="tabPanelDiarios" onclick="setTabPanel('diarios')">Diarios</div>
+        <div class="toggle-btn" id="tabPanelMensuales" onclick="setTabPanel('mensuales')">Mensuales</div>
+        <div class="toggle-btn" id="tabPanelClientes" onclick="setTabPanel('clientes')">Clientes</div>
+        <div class="toggle-btn" id="tabPanelDepurados" onclick="setTabPanel('depurados')">Depurados</div>
       </div>
 
       <div id="tabPanelContenido"></div>
@@ -622,6 +628,7 @@ let state = {
   cuotasSeleccionadas: [],
   usuarioRol: 'administrador',
   usuarioId: null,
+  vendedorVistaAdmin: null, // null = punto neutro (todas las rutas juntas)
   modoRuta: 'manual',
   requiereAdminParaIngresar: false
 };
@@ -881,7 +888,7 @@ function interesRecuperadoDePago(prestamo, montoPagado){
 function totalRecaudadoHoy(){
   const hoy = todayISO();
   let t = 0;
-  state.prestamos.forEach(p=> p.cuotas.forEach(c=>{ if(c.fechaPago===hoy) t += (c.montoPagado||0); }));
+  state.prestamos.forEach(p=>{ if(!esMiCliente(p.clienteId)) return; p.cuotas.forEach(c=>{ if(c.fechaPago===hoy) t += (c.montoPagado||0); }); });
   return t;
 }
 
@@ -985,16 +992,16 @@ async function depurarCredito(prestamoId){
 
 function saldoEnCajaReal(){
   let total = 0;
-  state.prestamos.forEach(p=> p.cuotas.forEach(cu=>{ if(cu.fechaPago) total += (cu.montoPagado||0); }));
-  state.movimientos.forEach(m=>{ total += (m.tipo==='ingreso' ? m.monto : -m.monto); });
+  state.prestamos.forEach(p=>{ if(!esMiCliente(p.clienteId)) return; p.cuotas.forEach(cu=>{ if(cu.fechaPago) total += (cu.montoPagado||0); }); });
+  state.movimientos.forEach(m=>{ if(!esMiMovimiento(m)) return; total += (m.tipo==='ingreso' ? m.monto : -m.monto); });
   return total;
 }
 
 function saldoAlDiaAnterior(){
   const hoy = todayISO();
   let total = 0;
-  state.prestamos.forEach(p=> p.cuotas.forEach(cu=>{ if(cu.fechaPago && cu.fechaPago<hoy) total += (cu.montoPagado||0); }));
-  state.movimientos.forEach(m=>{ if(m.fecha<hoy) total += (m.tipo==='ingreso' ? m.monto : -m.monto); });
+  state.prestamos.forEach(p=>{ if(!esMiCliente(p.clienteId)) return; p.cuotas.forEach(cu=>{ if(cu.fechaPago && cu.fechaPago<hoy) total += (cu.montoPagado||0); }); });
+  state.movimientos.forEach(m=>{ if(!esMiMovimiento(m)) return; if(m.fecha<hoy) total += (m.tipo==='ingreso' ? m.monto : -m.monto); });
   return total;
 }
 
@@ -1016,10 +1023,12 @@ function creditosHoy(){
   let nuevos = 0, renovados = 0;
   const porCliente = {};
   state.prestamos.forEach(p=>{
+    if(!esMiCliente(p.clienteId)) return;
     porCliente[p.clienteId] = porCliente[p.clienteId] || [];
     porCliente[p.clienteId].push(p);
   });
   state.prestamos.forEach(p=>{
+    if(!esMiCliente(p.clienteId)) return;
     if(p.creadoEn !== hoy) return;
     const esPrimero = porCliente[p.clienteId][0].id === p.id;
     if(esPrimero) nuevos++; else renovados++;
@@ -1029,7 +1038,7 @@ function creditosHoy(){
 
 function ventasDelDia(){
   const hoy = todayISO();
-  return state.prestamos.filter(p=>p.creadoEn===hoy).reduce((a,p)=>a+p.valor,0);
+  return state.prestamos.filter(p=>p.creadoEn===hoy && esMiCliente(p.clienteId)).reduce((a,p)=>a+p.valor,0);
 }
 
 /* =========================================================
@@ -1167,10 +1176,14 @@ async function intentarIngresar(){
 
   state.usuarioRol = perfil.rol;
   state.usuarioId = sesion.user.id;
+  state.usuarioNombre = perfil.nombre;
   errorEl.textContent = 'Cargando datos...';
   await cargarDatosDesdeSupabase();
   activarRealtime();
-  if(state.usuarioRol === 'administrador') contarSolicitudesPendientes();
+  if(state.usuarioRol === 'administrador'){
+    contarSolicitudesPendientes();
+    await cargarCobradoresParaSelectorAdmin();
+  }
   errorEl.textContent = '';
   toast(`Ingresaste como ${perfil.nombre}`);
   nav('inicio');
@@ -1353,7 +1366,7 @@ function avisoCambiarPinCobrador(){
       if(error) throw error;
       if(data && data.error) throw new Error(data.error);
       backdrop.remove();
-      toast('✅ PIN del cobrador actualizado');
+      toast(`✅ PIN actualizado para ${data?.actualizado || 'el cobrador'}`);
     } catch(e){
       console.error('No se pudo cambiar el PIN del cobrador', e);
       toast('⚠️ No se pudo cambiar el PIN — ¿ya desplegaste la función "cambiar-pin-cobrador" en Supabase?');
@@ -1845,9 +1858,36 @@ function proximaCuotaAccionable(p){
 }
 
 function esMiCliente(clienteId){
-  if(state.usuarioRol !== 'cobrador') return true; // el administrador ve todo
   const c = state.clientes.find(cl=>cl.id===clienteId);
-  return !!c && c.vendedorId === state.usuarioId;
+  if(state.usuarioRol === 'cobrador') return !!c && c.vendedorId === state.usuarioId;
+  if(state.usuarioRol === 'administrador' && state.vendedorVistaAdmin) return !!c && c.vendedorId === state.vendedorVistaAdmin;
+  return true; // punto neutro: se ve todo junto
+}
+
+function esMiMovimiento(m){
+  if(state.usuarioRol === 'cobrador') return m.vendedorId === state.usuarioId;
+  if(state.usuarioRol === 'administrador' && state.vendedorVistaAdmin) return m.vendedorId === state.vendedorVistaAdmin;
+  return true;
+}
+
+async function cargarCobradoresParaSelectorAdmin(){
+  const { data, error } = await supabaseClient.from('usuarios').select('id, nombre').eq('rol','cobrador');
+  if(error){ console.error('No se pudo cargar la lista de cobradores', error); return; }
+  cobradoresDelPanel = data || [];
+  const sel = document.getElementById('selRutaAdmin');
+  sel.innerHTML = '<option value="">📍 Viendo: todas las rutas juntas</option>' +
+    cobradoresDelPanel.map(v=>`<option value="${v.id}">📍 Viendo: ruta ${escapeHtml(v.nombre)}</option>`).join('');
+  sel.value = state.vendedorVistaAdmin || '';
+  document.getElementById('selectorRutaAdmin').classList.remove('hidden');
+}
+
+function cambiarVistaRutaAdmin(id){
+  state.vendedorVistaAdmin = id || null;
+  const pantalla = pantallaActiva();
+  if(pantalla==='inicio') renderInicio();
+  else if(pantalla==='caja') renderCaja();
+  else if(pantalla==='clientes') renderClientes();
+  toast(id ? `Viendo la ruta de ${cobradoresDelPanel.find(v=>v.id===id)?.nombre || ''}` : 'Viendo todas las rutas juntas');
 }
 
 function cuotasDeHoyPorCliente(){
@@ -2955,10 +2995,15 @@ async function eliminarMovimiento(id){
 function renderCaja(){
   const hoy = todayISO();
   document.getElementById('cajaDate').textContent = new Date().toLocaleDateString('es-UY', {day:'numeric', month:'short'});
+  document.getElementById('cajaNombreRuta').textContent = state.usuarioRol==='cobrador'
+    ? `RUTA ${(state.usuarioNombre||'').toUpperCase()}`
+    : state.vendedorVistaAdmin
+      ? `RUTA ${(cobradoresDelPanel.find(v=>v.id===state.vendedorVistaAdmin)?.nombre||'').toUpperCase()}`
+      : 'CAJA — TODAS LAS RUTAS';
 
   const recaudoHoy = totalRecaudadoHoy();
-  const ingresosAdicHoy = state.movimientos.filter(m=>m.tipo==='ingreso' && m.fecha===hoy).reduce((a,m)=>a+m.monto,0);
-  const egresosHoy = state.movimientos.filter(m=>m.tipo==='egreso' && m.fecha===hoy).reduce((a,m)=>a+m.monto,0);
+  const ingresosAdicHoy = state.movimientos.filter(m=>m.tipo==='ingreso' && m.fecha===hoy && esMiMovimiento(m)).reduce((a,m)=>a+m.monto,0);
+  const egresosHoy = state.movimientos.filter(m=>m.tipo==='egreso' && m.fecha===hoy && esMiMovimiento(m)).reduce((a,m)=>a+m.monto,0);
   document.getElementById('cajaSaldoAnterior').textContent = fmt(saldoAlDiaAnterior());
   document.getElementById('cajaRecaudo').textContent = fmt(recaudoHoy);
   document.getElementById('cajaVentas').textContent = fmt(ventasDelDia());
@@ -2978,13 +3023,13 @@ function renderCaja(){
   const { nuevos, renovados } = creditosHoy();
   document.getElementById('resNuevos').textContent = nuevos;
   document.getElementById('resRenovados').textContent = renovados;
-  document.getElementById('resTotalClientes').textContent = state.clientes.length;
+  document.getElementById('resTotalClientes').textContent = state.clientes.filter(c=>esMiCliente(c.id)).length;
 }
 
 function renderMovimientos(){
   const boxMov = document.getElementById('listaMovimientos');
   boxMov.innerHTML = '';
-  const movs = state.movimientos.slice().sort((a,b)=> b.fecha.localeCompare(a.fecha));
+  const movs = state.movimientos.filter(esMiMovimiento).slice().sort((a,b)=> b.fecha.localeCompare(a.fecha));
   if(movs.length===0){
     boxMov.innerHTML = '<div class="empty-state" style="padding:20px 0;">Sin movimientos registrados todavía.</div>';
   } else {
