@@ -186,6 +186,10 @@
 
   .modal-backdrop{ position:absolute; inset:0; background: rgba(28,36,48,0.45); z-index:50; display:flex; align-items:flex-end; justify-content:center; }
   .modal-sheet{ background:var(--paper); width:100%; max-width:430px; border-radius:20px 20px 0 0; padding:22px 20px 26px 20px; max-height:85vh; overflow-y:auto; }
+  .scroll-fino{ scrollbar-width:thin; }
+  .scroll-fino::-webkit-scrollbar{ width:5px; }
+  .scroll-fino::-webkit-scrollbar-thumb{ background:var(--line); border-radius:10px; }
+  .scroll-fino::-webkit-scrollbar-track{ background:transparent; }
   .modal-sheet h3{ font-family:'Spectral',serif; margin:0 0 4px 0; font-size:18px;}
   .modal-sheet .sub{ color:var(--muted); font-size:13px; margin-bottom:16px;}
   .hidden{ display:none !important; }
@@ -294,8 +298,12 @@
 
   <!-- ===================== INICIO (pendientes / cobrados, en carpetas) ===================== -->
   <div class="screen" id="screen-inicio">
-    <div class="topbar">
+    <div class="topbar" style="display:flex; align-items:center; justify-content:space-between;">
       <div><span class="eyebrow" id="inicioDate">Hoy</span></div>
+      <div style="display:flex; align-items:center; gap:14px;">
+        <span id="btnCambiarPinInicio" onclick="abrirCambiarPinPropio()" title="Cambiar mi PIN" style="font-size:16px; cursor:pointer;">🔑</span>
+        <span onclick="abrirOrganizarRuta()" style="font-size:13px; font-weight:600; color:var(--teal); cursor:pointer; white-space:nowrap;">🔀 Organizar ruta</span>
+      </div>
     </div>
     <div class="content">
       <div class="toggle-row">
@@ -503,6 +511,7 @@
   <div class="screen" id="screen-movimientos">
     <div class="topbar">
       <div class="back-btn" onclick="nav('caja')">←</div>
+      <div style="flex:1;"><h1>Registrar movimiento</h1></div>
     </div>
     <div class="content">
       <div class="card">
@@ -512,7 +521,7 @@
         </div>
         <div class="field"><label>Concepto <span style="color:var(--brick);">*</span></label><input type="text" id="movConcepto" placeholder="Ej. Pago de alquiler de oficina" required></div>
         <div class="field"><label>Monto</label><input type="number" id="movMonto" placeholder="0"></div>
-        <button class="btn btn-primary" onclick="guardarMovimiento()" id="btnGuardarMov">Registrar movimiento</button>
+        <button class="btn btn-primary" onclick="guardarMovimiento()" id="btnGuardarMov">Confirmar</button>
       </div>
       <div class="section-title" style="justify-content:center;">Detalle de movimientos</div>
       <div class="card" id="listaMovimientos" style="padding:0 16px;"></div>
@@ -1237,13 +1246,111 @@ function abrirMenuCobradoresPanel(){
       <div class="sub">Elegí qué querés hacer.</div>
       <button class="btn btn-secondary" style="text-align:left; padding-left:16px;" id="optAgregarCobradorPanel">➕ Agregar cobrador nuevo</button>
       <button class="btn btn-secondary" style="text-align:left; padding-left:16px; margin-top:8px;" id="optModificarCobradorPanel">✏️ Modificar cobrador existente</button>
+      <button class="btn btn-secondary" style="text-align:left; padding-left:16px; margin-top:8px;" id="optCambiarPinPanel">🔑 Cambiar PIN</button>
       <button class="btn btn-secondary" style="text-align:left; padding-left:16px; margin-top:8px; color:var(--brick);" id="optEliminarCobradorPanel">🗑️ Eliminar cobrador</button>
       <button class="btn btn-secondary" style="margin-top:14px;" onclick="this.closest('.modal-backdrop').remove();">Cancelar</button>
     </div>`;
   document.getElementById('app').appendChild(backdrop);
   backdrop.querySelector('#optAgregarCobradorPanel').onclick = ()=>{ backdrop.remove(); avisoAgregarCobrador(); };
   backdrop.querySelector('#optModificarCobradorPanel').onclick = ()=>{ backdrop.remove(); abrirModificarCobrador(); };
+  backdrop.querySelector('#optCambiarPinPanel').onclick = ()=>{ backdrop.remove(); abrirCambiarPin(); };
   backdrop.querySelector('#optEliminarCobradorPanel').onclick = ()=>{ backdrop.remove(); abrirEliminarCobrador(); };
+}
+
+function abrirCambiarPin(){
+  const backdrop = document.createElement('div');
+  backdrop.className = 'modal-backdrop';
+  backdrop.onclick = (e)=>{ if(e.target===backdrop) backdrop.remove(); };
+  backdrop.innerHTML = `
+    <div class="modal-sheet">
+      <h3>🔑 Cambiar PIN</h3>
+      <div class="sub">¿De quién es el PIN que querés cambiar?</div>
+      <button class="btn btn-secondary" style="text-align:left; padding-left:16px;" id="optPinPropio">🔑 Mi propio PIN (administrador)</button>
+      <button class="btn btn-secondary" style="text-align:left; padding-left:16px; margin-top:8px;" id="optPinCobrador">👤 El PIN del cobrador</button>
+      <button class="btn btn-secondary" style="margin-top:14px;" onclick="this.closest('.modal-backdrop').remove();">Cancelar</button>
+    </div>`;
+  document.getElementById('app').appendChild(backdrop);
+  backdrop.querySelector('#optPinPropio').onclick = ()=>{ backdrop.remove(); abrirCambiarPinPropio(); };
+  backdrop.querySelector('#optPinCobrador').onclick = ()=>{ backdrop.remove(); avisoCambiarPinCobrador(); };
+}
+
+function abrirCambiarPinPropio(){
+  const backdrop = document.createElement('div');
+  backdrop.className = 'modal-backdrop';
+  backdrop.onclick = (e)=>{ if(e.target===backdrop) backdrop.remove(); };
+  backdrop.innerHTML = `
+    <div class="modal-sheet">
+      <h3>🔑 Cambiar mi PIN</h3>
+      <div class="sub">Elegí un PIN nuevo de 6 dígitos. Vas a tener que usarlo la próxima vez que entres.</div>
+      <div class="field" style="margin-bottom:14px; text-align:left;">
+        <label style="display:block; font-size:11px; font-weight:700; color:var(--ink-soft); text-transform:uppercase; margin-bottom:6px;">PIN nuevo</label>
+        <input type="password" id="inpPinNuevoPropio" maxlength="6" inputmode="numeric" placeholder="6 dígitos" style="width:100%; padding:11px 13px; border-radius:10px; border:1.5px solid var(--line); font-size:14px;">
+      </div>
+      <div class="field" style="margin-bottom:14px; text-align:left;">
+        <label style="display:block; font-size:11px; font-weight:700; color:var(--ink-soft); text-transform:uppercase; margin-bottom:6px;">Repetir PIN nuevo</label>
+        <input type="password" id="inpPinNuevoPropio2" maxlength="6" inputmode="numeric" placeholder="6 dígitos" style="width:100%; padding:11px 13px; border-radius:10px; border:1.5px solid var(--line); font-size:14px;">
+      </div>
+      <button class="btn btn-primary" id="btnGuardarPinPropio">Guardar PIN nuevo</button>
+      <button class="btn btn-secondary" onclick="this.closest('.modal-backdrop').remove();">Cancelar</button>
+    </div>`;
+  document.getElementById('app').appendChild(backdrop);
+  backdrop.querySelector('#btnGuardarPinPropio').onclick = async ()=>{
+    const pin1 = backdrop.querySelector('#inpPinNuevoPropio').value.trim();
+    const pin2 = backdrop.querySelector('#inpPinNuevoPropio2').value.trim();
+    if(!esPinValido(pin1)){ toast('El PIN tiene que tener 6 dígitos'); return; }
+    if(pin1 !== pin2){ toast('Los dos PIN no coinciden'); return; }
+    try{
+      const { error } = await supabaseClient.auth.updateUser({ password: pin1 });
+      if(error) throw error;
+      backdrop.remove();
+      toast('✅ PIN actualizado — usalo la próxima vez que entres');
+    } catch(e){
+      console.error('No se pudo cambiar el PIN', e);
+      toast('⚠️ No se pudo cambiar el PIN — revisá tu conexión');
+    }
+  };
+}
+
+function avisoCambiarPinCobrador(){
+  if(cobradoresDelPanel.length===0){ toast('No hay cobradores cargados todavía'); return; }
+  const backdrop = document.createElement('div');
+  backdrop.className = 'modal-backdrop';
+  backdrop.onclick = (e)=>{ if(e.target===backdrop) backdrop.remove(); };
+  backdrop.innerHTML = `
+    <div class="modal-sheet">
+      <h3>👤 Cambiar el PIN del cobrador</h3>
+      <div class="sub">Elegí el cobrador y el PIN nuevo de 6 dígitos.</div>
+      <div class="field" style="margin-bottom:14px; text-align:left;">
+        <label style="display:block; font-size:11px; font-weight:700; color:var(--ink-soft); text-transform:uppercase; margin-bottom:6px;">Cobrador</label>
+        <select id="selCobradorPin" style="width:100%; padding:11px 13px; border-radius:10px; border:1.5px solid var(--line); font-size:14px;">
+          ${cobradoresDelPanel.map(v=>`<option value="${v.id}">${escapeHtml(v.nombre)}</option>`).join('')}
+        </select>
+      </div>
+      <div class="field" style="margin-bottom:14px; text-align:left;">
+        <label style="display:block; font-size:11px; font-weight:700; color:var(--ink-soft); text-transform:uppercase; margin-bottom:6px;">PIN nuevo</label>
+        <input type="password" id="inpPinCobradorNuevo" maxlength="6" inputmode="numeric" placeholder="6 dígitos" style="width:100%; padding:11px 13px; border-radius:10px; border:1.5px solid var(--line); font-size:14px;">
+      </div>
+      <button class="btn btn-primary" id="btnGuardarPinCobrador">Guardar PIN nuevo</button>
+      <button class="btn btn-secondary" onclick="this.closest('.modal-backdrop').remove();">Cancelar</button>
+    </div>`;
+  document.getElementById('app').appendChild(backdrop);
+  backdrop.querySelector('#btnGuardarPinCobrador').onclick = async ()=>{
+    const cobradorId = backdrop.querySelector('#selCobradorPin').value;
+    const nuevoPin = backdrop.querySelector('#inpPinCobradorNuevo').value.trim();
+    if(!esPinValido(nuevoPin)){ toast('El PIN tiene que tener 6 dígitos'); return; }
+    try{
+      const { data, error } = await supabaseClient.functions.invoke('cambiar-pin-cobrador', {
+        body: { cobradorId, nuevoPin }
+      });
+      if(error) throw error;
+      if(data && data.error) throw new Error(data.error);
+      backdrop.remove();
+      toast('✅ PIN del cobrador actualizado');
+    } catch(e){
+      console.error('No se pudo cambiar el PIN del cobrador', e);
+      toast('⚠️ No se pudo cambiar el PIN — ¿ya desplegaste la función "cambiar-pin-cobrador" en Supabase?');
+    }
+  };
 }
 
 function avisoAgregarCobrador(){
@@ -1732,8 +1839,81 @@ function setTabInicio(tab){
   document.getElementById('folderCobrados').classList.toggle('hidden', tab!=='cobrados');
 }
 
+function abrirOrganizarRuta(){
+  const backdrop = document.createElement('div');
+  backdrop.className = 'modal-backdrop';
+  backdrop.onclick = (e)=>{ if(e.target===backdrop) backdrop.remove(); };
+  backdrop.innerHTML = `
+    <div class="modal-sheet">
+      <h3>🔀 Organizar ruta</h3>
+      <div id="listaOrganizarRuta" class="scroll-fino" style="max-height:60vh; overflow-y:auto; margin-top:10px;"></div>
+      <button class="btn btn-secondary" style="margin-top:14px;" onclick="this.closest('.modal-backdrop').remove(); renderInicio();">Listo</button>
+    </div>`;
+  document.getElementById('app').appendChild(backdrop);
+  renderListaOrganizarRuta();
+}
+
+function renderListaOrganizarRuta(){
+  const box = document.getElementById('listaOrganizarRuta');
+  if(!box) return;
+  const hoy = todayISO();
+  const activos = state.clientes.filter(c=>{
+    const inactivo = clienteInactivo(c.id);
+    const actual = creditoActualDe(c.id);
+    const esNuevoHoy = !!actual && actual.creadoEn === hoy;
+    return !inactivo && !esNuevoHoy;
+  }).sort((a,b)=> (a.orden??9999)-(b.orden??9999) || a.nombre.localeCompare(b.nombre));
+
+  box.innerHTML = '';
+  if(activos.length===0){
+    box.innerHTML = '<div class="empty-state" style="padding:20px 0;"><div class="glyph">📇</div>Sin clientes activos todavía.</div>';
+    return;
+  }
+  activos.forEach((c,idx)=>{
+    const color = colorCliente(c.id);
+    const row = document.createElement('div');
+    row.className = 'list-row';
+    row.innerHTML = `
+      <div class="orden-arrows">
+        <button class="icon-btn" ${idx===0?'disabled':''} onclick="moverClienteOrganizarRuta('${c.id}',-1)">▲</button>
+        <button class="icon-btn" ${idx===activos.length-1?'disabled':''} onclick="moverClienteOrganizarRuta('${c.id}',1)">▼</button>
+      </div>
+      <div class="avatar dot-${color}">${escapeHtml(iniciales(c.nombre))}</div>
+      <div class="info"><div class="name">${escapeHtml(c.nombre)}</div></div>`;
+    box.appendChild(row);
+  });
+}
+
+async function moverClienteOrganizarRuta(clienteId, direccion){
+  const hoy = todayISO();
+  const activos = state.clientes.filter(c=>{
+    const inactivo = clienteInactivo(c.id);
+    const actual = creditoActualDe(c.id);
+    const esNuevoHoy = !!actual && actual.creadoEn === hoy;
+    return !inactivo && !esNuevoHoy;
+  }).sort((a,b)=> (a.orden??9999)-(b.orden??9999) || a.nombre.localeCompare(b.nombre));
+
+  const idx = activos.findIndex(c=>c.id===clienteId);
+  const destino = idx + direccion;
+  if(idx<0 || destino<0 || destino>=activos.length) return;
+  activos.forEach((c,i)=> c.orden = i); // normalizar
+  const tmp = activos[idx].orden;
+  activos[idx].orden = activos[destino].orden;
+  activos[destino].orden = tmp;
+  renderListaOrganizarRuta();
+  try{
+    await Promise.all(activos.map(c=>
+      supabaseClient.from('clientes').update({ orden_ruta: c.orden }).eq('id', c.id)
+    ));
+  } catch(e){
+    console.error('No se pudo guardar el nuevo orden de ruta', e);
+    toast('⚠️ El orden no se guardó en la base — revisá tu conexión');
+  }
+}
+
 function renderInicio(){
   document.getElementById('inicioDate').textContent = new Date().toLocaleDateString('es-UY', {weekday:'long', day:'numeric', month:'long'});
+  document.getElementById('btnCambiarPinInicio').classList.toggle('hidden', state.usuarioRol!=='administrador');
   const hoyPorCliente = cuotasDeHoyPorCliente();
   const idsConPendientes = Object.keys(hoyPorCliente).filter(id=>hoyPorCliente[id].pendientes.length>0);
   const idsConCobrados = Object.keys(hoyPorCliente).filter(id=>hoyPorCliente[id].cobradas.length>0);
@@ -1825,14 +2005,10 @@ function renderClientes(){
   const wrap = document.createElement('div'); wrap.className='card'; wrap.style.padding='0 16px';
   lista.forEach((c)=>{
     const color = colorCliente(c.id);
-    const inactivo = clienteInactivo(c.id);
-    const pillClass = inactivo ? 'pill-muted' : color==='rojo' ? 'pill-late' : color==='amarillo' ? 'pill-warn' : 'pill-ok';
-    const pillText = inactivo ? 'Lista de espera' : color==='rojo' ? 'Mora' : color==='amarillo' ? 'Atrasado' : 'Al día';
     const row = document.createElement('div'); row.className='list-row'; row.onclick=()=>{ state.pantallaAnterior='clientes'; abrirFicha(c.id); };
     row.innerHTML = `
       <div class="avatar dot-${color}">${escapeHtml(iniciales(c.nombre))}</div>
-      <div class="info"><div class="name">${escapeHtml(c.nombre)}</div><div class="meta">${escapeHtml(c.telefono)}</div></div>
-      <span class="pill ${pillClass}">${pillText}</span>`;
+      <div class="info"><div class="name">${escapeHtml(c.nombre)}</div><div class="meta">${escapeHtml(c.telefono)}</div></div>`;
     wrap.appendChild(row);
   });
   box.appendChild(wrap);
@@ -2037,7 +2213,7 @@ function abrirFicha(clienteId){
   document.getElementById('notaNoEliminable').classList.toggle('hidden', puedeEliminar || state.usuarioRol!=='administrador');
   document.getElementById('btnVerHistorialPagos').classList.toggle('hidden', !actual || state.pantallaAnterior==='panel-admin');
   document.getElementById('btnEditarClienteFicha').classList.toggle('hidden', state.pantallaAnterior==='panel-admin');
-  document.getElementById('btnPagoAdelantado').classList.toggle('hidden', !(actual && actual.creadoEn===todayISO()));
+  document.getElementById('btnPagoAdelantado').classList.toggle('hidden', !(actual && actual.creadoEn===todayISO() && !prestamoFinalizado(actual)));
 
   nav('ficha');
 }
@@ -2648,7 +2824,7 @@ async function guardarMovimiento(){
     const m = state.movimientos.find(mv=>mv.id===state.editandoMovId);
     m.tipo = state.tipoMovNuevo; m.concepto = concepto; m.monto = monto;
     state.editandoMovId = null;
-    document.getElementById('btnGuardarMov').textContent = 'Registrar movimiento';
+    document.getElementById('btnGuardarMov').textContent = 'Confirmar';
     toast('Movimiento actualizado');
     try{
       const { error } = await supabaseClient.from('movimientos').update({ tipo: m.tipo, concepto: m.concepto, monto: m.monto }).eq('id', m.id);
@@ -2677,20 +2853,10 @@ async function guardarMovimiento(){
   setTipoMov('ingreso');
   renderMovimientos();
 }
-function editarMovimiento(id){
-  const m = state.movimientos.find(mv=>mv.id===id);
-  if(!m) return;
-  state.editandoMovId = id;
-  setTipoMov(m.tipo);
-  document.getElementById('movConcepto').value = m.concepto;
-  document.getElementById('movMonto').value = m.monto;
-  document.getElementById('btnGuardarMov').textContent = 'Guardar cambios';
-  document.getElementById('movConcepto').scrollIntoView({behavior:'smooth', block:'center'});
-}
 async function eliminarMovimiento(id){
   if(!confirm('¿Eliminar este movimiento?')) return;
   state.movimientos = state.movimientos.filter(mv=>mv.id!==id);
-  if(state.editandoMovId===id){ state.editandoMovId=null; document.getElementById('btnGuardarMov').textContent='Registrar movimiento'; }
+  if(state.editandoMovId===id){ state.editandoMovId=null; document.getElementById('btnGuardarMov').textContent='Confirmar'; }
   toast('Movimiento eliminado');
   renderMovimientos();
   try{
@@ -2745,7 +2911,6 @@ function renderMovimientos(){
       row.innerHTML = `<div><span class="tag ${m.tipo}">${m.tipo}</span>${escapeHtml(m.concepto)}<div style="font-size:11px; color:var(--muted); margin-top:2px;">${m.fecha}</div></div>
         <div class="mov-actions">
           <span class="num" style="font-weight:600;">${m.tipo==='egreso'?'-':''}${fmt(m.monto)}</span>
-          <button class="icon-btn" title="Editar" onclick="editarMovimiento('${m.id}')">✏️</button>
           <button class="icon-btn" title="Eliminar" onclick="eliminarMovimiento('${m.id}')">🗑️</button>
         </div>`;
       boxMov.appendChild(row);
