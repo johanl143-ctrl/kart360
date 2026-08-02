@@ -621,6 +621,7 @@ let state = {
   modoSeleccionCuotas: false,
   cuotasSeleccionadas: [],
   usuarioRol: 'administrador',
+  usuarioId: null,
   modoRuta: 'manual',
   requiereAdminParaIngresar: false
 };
@@ -1117,9 +1118,14 @@ async function intentarIngresar(){
   }
   errorEl.textContent = 'Verificando...';
 
-  const candidatos = rolLoginSeleccionado === 'administrador'
-    ? ['admin@kart360.local']
-    : ['cobrador@kart360.local'];
+  let candidatos;
+  if(rolLoginSeleccionado === 'administrador'){
+    candidatos = ['admin@kart360.local'];
+  } else {
+    const { data: cobradores } = await supabaseClient.from('usuarios').select('email').eq('rol','cobrador');
+    candidatos = (cobradores || []).map(c=>c.email).filter(Boolean);
+    if(candidatos.length===0) candidatos = ['cobrador@kart360.local']; // respaldo por si todavía no se corrió el script de emails
+  }
   let sesion = null;
   let ultimoError = null;
   for(const email of candidatos){
@@ -1160,6 +1166,7 @@ async function intentarIngresar(){
   }
 
   state.usuarioRol = perfil.rol;
+  state.usuarioId = sesion.user.id;
   errorEl.textContent = 'Cargando datos...';
   await cargarDatosDesdeSupabase();
   activarRealtime();
@@ -1361,7 +1368,10 @@ function avisoAgregarCobrador(){
   backdrop.innerHTML = `
     <div class="modal-sheet">
       <h3>➕ Agregar cobrador</h3>
-      <div class="sub">Por seguridad, crear un usuario nuevo con su propio PIN todavía se hace desde el panel de Supabase (Authentication → Users), para no cerrar tu sesión de administrador por accidente. Una vez creado ahí, ya va a aparecer solo en este selector.</div>
+      <div class="sub">Por seguridad, crear un usuario nuevo con su propio PIN todavía se hace desde Supabase. Son 2 pasos:<br><br>
+        <b>1)</b> Authentication → Users → "Add user" → poné un email como <code>cobrador2@kart360.local</code> y el PIN de 6 dígitos como contraseña.<br><br>
+        <b>2)</b> Table Editor → tabla <code>usuarios</code> → "Insert row" → mismo <code>id</code> que el usuario recién creado, su nombre, <code>rol = cobrador</code>, y el mismo email del paso 1.<br><br>
+        Con esos 2 pasos ya puede entrar normal desde el login, eligiendo "Vendedor".</div>
       <button class="btn btn-primary" onclick="this.closest('.modal-backdrop').remove();">Entendido</button>
     </div>`;
   document.getElementById('app').appendChild(backdrop);
@@ -1419,7 +1429,7 @@ function abrirEliminarCobrador(){
   backdrop.innerHTML = `
     <div class="modal-sheet">
       <h3>🗑️ Eliminar cobrador</h3>
-      <div class="sub">Esto borra su acceso al sistema. Sus clientes NO se borran, quedan asignados a ese cobrador (recomendamos reasignarlos antes desde Supabase si hace falta).</div>
+      <div class="sub">Si todavía tiene clientes asignados, el sistema va a rechazar el borrado por completo — ni el cobrador ni sus clientes se tocan. Para poder eliminarlo, primero hay que reasignar sus clientes a otro cobrador desde Supabase.</div>
       <div class="field" style="margin-bottom:14px; text-align:left;">
         <label style="display:block; font-size:11px; font-weight:700; color:var(--ink-soft); text-transform:uppercase; margin-bottom:6px;">Cobrador</label>
         <select id="selCobradorElimPanel" style="width:100%; padding:11px 13px; border-radius:10px; border:1.5px solid var(--line); font-size:14px;">
@@ -1444,7 +1454,7 @@ function abrirEliminarCobrador(){
       renderPanelAdmin();
     } catch(e){
       console.error(e);
-      toast('⚠️ No se pudo eliminar — puede tener datos vinculados que lo impiden');
+      toast('⚠️ No se pudo eliminar — todavía tiene clientes asignados. Reasignalos primero desde Supabase.');
     }
   };
 }
@@ -1834,10 +1844,17 @@ function proximaCuotaAccionable(p){
   return null;
 }
 
+function esMiCliente(clienteId){
+  if(state.usuarioRol !== 'cobrador') return true; // el administrador ve todo
+  const c = state.clientes.find(cl=>cl.id===clienteId);
+  return !!c && c.vendedorId === state.usuarioId;
+}
+
 function cuotasDeHoyPorCliente(){
   const hoy = todayISO();
   const hoyPorCliente = {}; // clienteId -> {pendientes:[], cobradas:[]}
   state.prestamos.forEach(p=>{
+    if(!esMiCliente(p.clienteId)) return;
     // Cobrado hoy: cualquier cuota gestionada (pagada, abono o no-pago) con fecha de pago de hoy
     p.cuotas.forEach(c=>{
       if(c.fechaPago === hoy){
@@ -2018,10 +2035,11 @@ function renderClientes(){
     const actual = creditoActualDe(c.id);
     const esNuevoHoy = !!actual && actual.creadoEn === hoy;
     const matchF = state.filtroCliente==='inactivo' ? inactivo : esNuevoHoy;
-    return matchQ && matchF;
+    return matchQ && matchF && esMiCliente(c.id);
   });
 
-  document.getElementById('clientesCount').textContent = `${state.clientes.length} cliente${state.clientes.length===1?'':'s'}`;
+  const totalMios = state.usuarioRol==='cobrador' ? state.clientes.filter(c=>esMiCliente(c.id)).length : state.clientes.length;
+  document.getElementById('clientesCount').textContent = `${totalMios} cliente${totalMios===1?'':'s'}`;
 
   const box = document.getElementById('listaClientes');
   box.innerHTML = '';
