@@ -44,12 +44,12 @@
   *{box-sizing:border-box;}
   html,body{height:100%;}
   body{
-    margin:0; background:#E7E2D4; font-family:'Inter',sans-serif; color:var(--ink);
+    margin:0; background:var(--paper); font-family:'Inter',sans-serif; color:var(--ink);
     display:flex; justify-content:center; -webkit-font-smoothing:antialiased;
   }
   .num{font-family:'IBM Plex Mono',monospace; font-variant-numeric: tabular-nums;}
   .app{
-    width:100%; max-width:430px; min-height:100vh; background:var(--paper); position:relative;
+    width:100%; max-width:430px; min-height:100vh; min-height:100dvh; background:var(--paper); position:relative;
     display:flex; flex-direction:column; box-shadow: 0 0 60px rgba(0,0,0,0.18);
   }
   .topbar{
