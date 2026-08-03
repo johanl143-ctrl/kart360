@@ -366,6 +366,7 @@
         <div class="sub" id="fichaTelefono">—</div>
         <div style="margin-top:8px;" id="fichaPillEstado"></div>
       </div>
+      <button class="btn btn-secondary" style="margin-top:6px;" onclick="state.pantallaAnterior='ficha'; abrirHistorialPagos()" id="btnVerHistorialPagos">👁️ Ver historial de pagos</button>
       <div class="card">
         <div class="kv-row"><span class="k">Documento</span><span class="v" id="fichaDoc">—</span></div>
         <div class="kv-row"><span class="k">Dirección</span><span class="v" id="fichaDireccion">—</span></div>
@@ -377,7 +378,6 @@
       </div>
 
       <button class="btn btn-gold hidden" style="margin-top:6px;" onclick="abrirPagoAdelantado()" id="btnPagoAdelantado">💰 Registrar pago adelantado</button>
-      <button class="btn btn-secondary" style="margin-top:6px;" onclick="state.pantallaAnterior='ficha'; abrirHistorialPagos()" id="btnVerHistorialPagos">👁️ Ver historial de pagos</button>
       <button class="btn btn-primary" style="margin-top:10px;" onclick="abrirNuevoPrestamo()" id="btnNuevoCreditoFicha">+ Nuevo crédito / renovar</button>
       <button class="btn btn-secondary" style="margin-top:10px;" onclick="state.pantallaAnterior='ficha'; editarCliente()" id="btnEditarClienteFicha">✏️ Editar cliente</button>
       <button class="btn btn-danger hidden" style="margin-top:10px;" onclick="eliminarCreditoActual()" id="btnEliminarCliente">🗑️ ELIMINAR CRÉDITO</button>
@@ -392,12 +392,7 @@
       <div><span class="eyebrow" id="histPagosCliente">Cliente</span><h1>Historial de pagos</h1></div>
     </div>
     <div class="content">
-      <div class="card">
-        <div class="kv-row"><span class="k">Valor del crédito</span><span class="v num" id="histPagosValor">—</span></div>
-        <div class="kv-row"><span class="k">Cuota diaria</span><span class="v num" id="histPagosCuota">—</span></div>
-        <div class="kv-row"><span class="k">Fecha de inicio</span><span class="v" id="histPagosInicio">—</span></div>
-      </div>
-      <div class="section-title" style="margin-top:14px;">Detalle día por día</div>
+      <div class="section-title" style="margin-top:0;">Detalle día por día</div>
       <div class="card" id="histPagosLista" style="padding:0 16px;"></div>
     </div>
   </div>
@@ -463,16 +458,25 @@
   <div class="screen" id="screen-detalle-prestamo">
     <div class="topbar">
       <div class="back-btn" onclick="volverAtras()">←</div>
-      <div><span class="eyebrow" id="detCliente">Cliente</span><h1>Detalle del crédito</h1></div>
+      <div><h1 id="detCliente" style="margin:0;">Cliente</h1></div>
     </div>
     <div class="content">
-      <div class="card">
-        <div class="kv-row"><span class="k">Capital</span><span class="v num" id="detCapital">—</span></div>
-        <div class="kv-row"><span class="k">Total a pagar</span><span class="v num" id="detTotal">—</span></div>
-        <div class="kv-row"><span class="k">Cuota diaria</span><span class="v num" id="detCuota">—</span></div>
-        <div class="kv-row"><span class="k">Cuotas pagas</span><span class="v" id="detPagas">—</span></div>
-        <div class="kv-row"><span class="k">Saldo restante</span><span class="v num" id="detSaldo">—</span></div>
-        <div class="kv-row"><span class="k">Estado</span><span class="v" id="detEstado">—</span></div>
+      <div onclick="document.getElementById('infoCreditoDesplegable').classList.toggle('hidden'); this.querySelector('.flecha-info-credito').textContent = document.getElementById('infoCreditoDesplegable').classList.contains('hidden') ? '▸' : '▾';" style="display:flex; justify-content:center; align-items:center; position:relative; cursor:pointer; padding:2px 2px;">
+        <div class="section-title" style="margin:0; text-align:center;">Información del crédito</div>
+        <span class="flecha-info-credito" style="font-size:14px; color:var(--muted); position:absolute; right:2px;">▸</span>
+      </div>
+      <div id="infoCreditoDesplegable" class="hidden">
+        <div class="card">
+          <div class="kv-row"><span class="k">Fecha de inicio</span><span class="v" id="detInicio">—</span></div>
+          <div class="kv-row"><span class="k">Capital</span><span class="v num" id="detCapital">—</span></div>
+          <div class="kv-row"><span class="k">Total a pagar</span><span class="v num" id="detTotal">—</span></div>
+          <div class="kv-row"><span class="k">Cuota diaria</span><span class="v num" id="detCuota">—</span></div>
+          <div class="kv-row"><span class="k">Cuotas pagas</span><span class="v" id="detPagas">—</span></div>
+          <div class="kv-row"><span class="k">Saldo restante</span><span class="v num" id="detSaldo">—</span></div>
+          <div class="kv-row"><span class="k">Cuotas atrasadas</span><span class="v" id="detAtrasadas">—</span></div>
+        </div>
+        <div class="section-title" style="margin-top:14px; text-align:center;">Historial de pagos</div>
+        <div class="card" style="padding:0 16px;" id="detHistorialLista"></div>
       </div>
 
       <div class="section-title">Ficha de cuotas <span class="see-all" id="btnToggleSeleccion" onclick="toggleModoSeleccion()">☑️ Marcar varias</span></div>
@@ -1024,7 +1028,13 @@ function creditoActualDe(clienteId){
   return ps[ps.length-1];
 }
 
+function esDomingo(iso){
+  const [y,m,d] = iso.split('-').map(Number);
+  return new Date(y, m-1, d).getDay() === 0;
+}
+
 function cuotaEstaAtrasada(cuota, hoy){
+  if(esDomingo(cuota.fecha)) return false; // domingo no es día hábil, nunca cuenta como atraso
   return cuota.fecha < hoy && cuota.estado !== 'pagada';
 }
 
@@ -2760,18 +2770,12 @@ function abrirPagoAdelantado(){
   abrirModalCuota(actual.id, idx, true);
 }
 
-function abrirHistorialPagos(){
-  const actual = creditoActualDe(state.clienteActivoId);
-  if(!actual){ toast('Este cliente todavía no tiene un crédito'); return; }
-  const c = state.clientes.find(cl=>cl.id===state.clienteActivoId);
+function renderHistorialEnContenedor(clienteId, containerId){
+  const actual = creditoActualDe(clienteId);
+  const box = document.getElementById(containerId);
+  if(!box) return;
+  if(!actual){ box.innerHTML = ''; return; }
   const hoy = todayISO();
-
-  document.getElementById('histPagosCliente').textContent = c.nombre;
-  document.getElementById('histPagosValor').textContent = fmt(actual.valor);
-  document.getElementById('histPagosCuota').textContent = fmt(actual.cuotaDiaria) + ' / día';
-  document.getElementById('histPagosInicio').textContent = actual.fechaInicio;
-
-  const box = document.getElementById('histPagosLista');
   box.innerHTML = '';
 
   // Cuotas ya gestionadas (tienen fecha de pago) — se agrupan por lote si se ingresaron juntas
@@ -2788,7 +2792,7 @@ function abrirHistorialPagos(){
   });
 
   // Cuotas todavía sin pagar y ya vencidas (para no perderlas de vista)
-  const pendientesVencidas = actual.cuotas.filter(cu=> cu.estado==='pendiente' && cu.fecha<=hoy);
+  const pendientesVencidas = actual.cuotas.filter(cu=> cu.estado==='pendiente' && cu.fecha<=hoy && !esDomingo(cu.fecha));
 
   const filas = grupos.map(g=>({
     fecha: g[0].fechaPago,
@@ -2801,21 +2805,26 @@ function abrirHistorialPagos(){
 
   if(filas.length===0){
     box.innerHTML = '<div class="empty-state" style="padding:20px 0;"><div class="glyph">🗓️</div><div>Este crédito todavía no tiene cuotas vencidas ni pagos hasta hoy.</div></div>';
-    nav('historial-pagos');
     return;
   }
 
   filas.forEach(f=>{
     const nums = f.cuotas.map(cu=>cu.n).sort((a,b)=>a-b);
-    const numsTxt = nums.length>1 ? `Cuotas ${nums[0]}–${nums[nums.length-1]} (${nums.length})` : `Cuota ${nums[0]}/${actual.nCuotas}`;
-    let pillClass, pillText, montoMostrado;
+    const esNoPago = f.resuelta && f.cuotas.length===1 && f.cuotas[0].estado==='no-pago';
+    let pillClass, pillText, montoMostrado, numsTxt, sinPagar;
     if(!f.resuelta){
-      pillClass='pill-late'; pillText='Atrasada'; montoMostrado = actual.cuotaDiaria;
+      pillClass='pill-late'; pillText='Atrasada'; montoMostrado = 0;
+      numsTxt = 'Sin pagar'; sinPagar = true;
+    } else if(esNoPago){
+      pillClass='pill-late'; pillText='No pagó'; montoMostrado = 0;
+      numsTxt = 'Sin pagar'; sinPagar = true;
     } else if(f.cuotas.length>1){
       pillClass='pill-ok'; pillText='Cobrado'; montoMostrado = f.total;
+      numsTxt = `Cuotas ${nums[0]}–${nums[nums.length-1]} (${nums.length})`; sinPagar = false;
     } else {
       [pillClass, pillText] = pillEstadoCuotaHoy(f.cuotas[0]);
       montoMostrado = f.total;
+      numsTxt = `Cuota ${nums[0]}/${actual.nCuotas}`; sinPagar = false;
     }
     const row = document.createElement('div');
     row.className = 'list-row';
@@ -2825,11 +2834,18 @@ function abrirHistorialPagos(){
         <div class="name">${numsTxt}</div>
         <div class="meta">${fechaConDia(f.fecha)}</div>
       </div>
-      <span class="num" style="font-weight:600; margin-right:8px;">${fmt(montoMostrado)}</span>
+      <span class="num" style="font-weight:600; margin-right:8px;">${sinPagar ? '00' : fmt(montoMostrado)}</span>
       <span class="pill ${pillClass}">${pillText}</span>`;
     box.appendChild(row);
   });
+}
 
+function abrirHistorialPagos(){
+  const actual = creditoActualDe(state.clienteActivoId);
+  if(!actual){ toast('Este cliente todavía no tiene un crédito'); return; }
+  const c = state.clientes.find(cl=>cl.id===state.clienteActivoId);
+  document.getElementById('histPagosCliente').textContent = c.nombre;
+  renderHistorialEnContenedor(state.clienteActivoId, 'histPagosLista');
   nav('historial-pagos');
 }
 
@@ -3031,15 +3047,21 @@ function abrirDetallePrestamo(prestamoId){
   state.cuotasSeleccionadas = [];
   const p = state.prestamos.find(pp=>pp.id===prestamoId);
   const c = state.clientes.find(cl=>cl.id===p.clienteId);
+  state.clienteActivoId = p.clienteId;
   document.getElementById('detCliente').textContent = c.nombre;
+  document.getElementById('detInicio').textContent = p.fechaInicio;
   document.getElementById('detCapital').textContent = fmt(p.valor);
   document.getElementById('detTotal').textContent = fmt(p.totalPagar);
   document.getElementById('detCuota').textContent = fmt(p.cuotaDiaria) + ' / día';
   const pagas = p.cuotas.filter(cu=>cu.estado==='pagada').length;
   document.getElementById('detPagas').textContent = `${pagas} / ${p.nCuotas}`;
   document.getElementById('detSaldo').textContent = fmt(saldoRestante(p));
-  const atrasado = p.cuotas.some(cu=>cuotaEstaAtrasada(cu,todayISO()));
-  document.getElementById('detEstado').innerHTML = `<span class="pill ${atrasado?'pill-late':(prestamoFinalizado(p)?'pill-muted':'pill-ok')}">${atrasado?'Atrasado':(prestamoFinalizado(p)?'Finalizado':'Al día')}</span>`;
+  const hoy = todayISO();
+  const nAtrasadas = p.cuotas.filter(cu=>cuotaEstaAtrasada(cu,hoy)).length;
+  document.getElementById('detAtrasadas').innerHTML = nAtrasadas>0
+    ? `<span class="pill pill-late">${nAtrasadas}</span>`
+    : `<span class="pill pill-ok">0</span>`;
+  renderHistorialEnContenedor(p.clienteId, 'detHistorialLista');
   document.getElementById('barraSeleccion').classList.add('hidden');
   document.getElementById('legendCuotas').classList.remove('hidden');
   document.getElementById('btnToggleSeleccion').textContent = '☑️ Marcar varias';
