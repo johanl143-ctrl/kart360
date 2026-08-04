@@ -451,7 +451,6 @@
           <div class="toggle-btn" id="npFrecSemanal" onclick="setFrecuenciaNP('semanal')">🗓️ Semanal</div>
         </div>
       </div>
-      <div class="field"><label>Fecha de inicio</label><input type="date" id="npFecha"></div>
       <div class="calc-box" id="calcBox">
         <div class="line"><span>Capital</span><span class="num" id="calcCapital">$0</span></div>
         <div class="line"><span>Interés</span><span class="num" id="calcInteres">$0</span></div>
@@ -459,7 +458,7 @@
         <div class="line total" id="calcCuotaRow"><span id="calcCuotaLabel">Cuota diaria (auto)</span><span class="num" id="calcCuota">$0</span></div>
       </div>
       <div class="field">
-        <label><input type="checkbox" id="npManualCheck" onchange="toggleManual()" style="width:auto; margin-right:6px;">Sobreescribir el valor de cuota manualmente</label>
+        <label><input type="checkbox" id="npManualCheck" onchange="toggleManual()" style="width:auto; margin-right:6px;">Cuota manual</label>
       </div>
       <div class="field hidden" id="npManualField">
         <label>Valor de cuota manual <span style="color:var(--gold); font-weight:700;">(este es el que se va a usar)</span></label>
@@ -2828,7 +2827,7 @@ function abrirNuevoPrestamo(){
   document.getElementById('npValor').value='';
   document.getElementById('npInteres').value='20';
   document.getElementById('npCuotas').value='30';
-  document.getElementById('npFecha').value = todayISO();
+  npFechaInicioEdicion = null;
   document.getElementById('npManualCheck').checked = false;
   document.getElementById('npCuotaManual').value='';
   setFrecuenciaNP('diario');
@@ -2945,7 +2944,7 @@ function abrirFormularioEdicionPrestamo(actual){
   document.getElementById('npValor').value = actual.valor;
   document.getElementById('npInteres').value = actual.interes;
   document.getElementById('npCuotas').value = actual.nCuotas;
-  document.getElementById('npFecha').value = actual.fechaInicio;
+  npFechaInicioEdicion = actual.fechaInicio;
   document.getElementById('npManualCheck').checked = false;
   document.getElementById('npCuotaManual').value='';
   setFrecuenciaNP(actual.frecuencia === 'semanal' ? 'semanal' : 'diario');
@@ -3008,6 +3007,7 @@ function toggleManual(){
   recalcular();
 }
 let frecuenciaNP = 'diario';
+let npFechaInicioEdicion = null;
 function setFrecuenciaNP(f){
   frecuenciaNP = f;
   document.getElementById('npFrecDiario').classList.toggle('active', f==='diario');
@@ -3044,7 +3044,7 @@ async function guardarPrestamo(){
   const valor = parseFloat(document.getElementById('npValor').value) || 0;
   const interes = parseFloat(document.getElementById('npInteres').value) || 0;
   let cuotas = Math.min(parseInt(document.getElementById('npCuotas').value)||0, frecuenciaNP==='semanal' ? 5 : 30);
-  const fecha = document.getElementById('npFecha').value || todayISO();
+  const fecha = state.editandoPrestamoId ? (npFechaInicioEdicion || todayISO()) : todayISO();
   const manual = document.getElementById('npManualCheck').checked;
   const cuotaManual = parseFloat(document.getElementById('npCuotaManual').value) || 0;
   if(valor<=0 || cuotas<=0){ toast('Completá el valor del producto y la cantidad de cuotas'); return; }
