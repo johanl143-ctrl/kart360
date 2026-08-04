@@ -189,7 +189,7 @@
   .cuota-chip.abono{ background: linear-gradient(135deg, var(--green) 50%, var(--card) 50%); border-color:var(--green); color:var(--ink); }
   .cuota-chip.no-pago{ background:var(--brick); border-color:var(--brick); color:#fff; }
   .cuota-chip.vencida{ border-color:var(--brick); color:var(--brick); background:var(--brick-tint); }
-  .cuota-chip.hoy{ box-shadow: 0 0 0 2px var(--gold); }
+  .cuota-chip.hoy{ }
   .cuota-chip.seleccionada{ box-shadow: 0 0 0 2px var(--teal); background: var(--teal-tint); border-color: var(--teal); }
   .cuota-chip.no-seleccionable{ opacity:0.4; cursor:not-allowed; }
   .legend{ display:flex; gap:12px; flex-wrap:wrap; margin-top:12px; font-size:11px; color:var(--muted); }
@@ -508,7 +508,6 @@
       </div>
       <div class="legend" id="legendCuotas">
         <span><i style="background:var(--card); border:1.5px solid var(--line);"></i>Pendiente</span>
-        <span><i style="background:var(--card); box-shadow:0 0 0 2px var(--gold);"></i>Vence hoy</span>
         <span><i style="background:var(--green);"></i>Cobrada</span>
         <span><i style="background:linear-gradient(135deg,var(--green) 50%, var(--card) 50%); border:1.5px solid var(--green);"></i>Abono</span>
         <span><i style="background:var(--brick-tint); border:1.5px solid var(--brick);"></i>Atrasada</span>
@@ -3266,7 +3265,31 @@ function renderCuotaGrid(p){
   const hoy = todayISO();
   const grid = document.getElementById('cuotaGrid');
   grid.innerHTML = '';
-  p.cuotas.forEach((cu, idx)=>{
+  let i = 0;
+  while(i < p.cuotas.length){
+    const cu = p.cuotas[i];
+
+    // Si hay 2 o más "No pagó" seguidas, y no estamos en modo selección, las agrupamos en un solo bloque
+    if(!state.modoSeleccionCuotas && cu.estado==='no-pago'){
+      let j = i;
+      while(j < p.cuotas.length && p.cuotas[j].estado==='no-pago') j++;
+      const cantidad = j - i;
+      if(cantidad >= 2){
+        const grupo = p.cuotas.slice(i, j);
+        const chip = document.createElement('div');
+        chip.className = 'cuota-chip no-pago';
+        chip.style.gridColumn = `span ${Math.min(cantidad, 6)}`;
+        chip.style.aspectRatio = 'auto';
+        chip.style.padding = '8px 4px';
+        chip.innerHTML = `<div class="n">${cantidad} sin pagar</div><div class="monto">Cuotas ${grupo[0].n}–${grupo[grupo.length-1].n}</div>`;
+        chip.title = `Cuotas ${grupo[0].n} a ${grupo[grupo.length-1].n} — no pagaron. Tocá para gestionar la primera`;
+        chip.onclick = ()=> abrirModalCuota(p.id, i);
+        grid.appendChild(chip);
+        i = j;
+        continue;
+      }
+    }
+
     const chip = document.createElement('div');
     let cls = cu.estado;
     if(cu.estado==='pendiente' && cuotaEstaAtrasada(cu,hoy)) cls = 'vencida';
@@ -3276,6 +3299,7 @@ function renderCuotaGrid(p){
     chip.innerHTML = `<div class="n">${cu.n}</div>${montoTxt}`;
     chip.title = `Cuota ${cu.n} — ${cu.fecha}` + (cu.montoPagado>0 ? ` — ${cu.estado==='abono'?'Abonado':'Pagado'}: ${fmt(cu.montoPagado)}` : '');
 
+    const idx = i;
     if(state.modoSeleccionCuotas){
       const enOrden = esSeleccionableEnOrden(p, idx);
       if(cu.estado!=='pendiente'){
@@ -3287,8 +3311,8 @@ function renderCuotaGrid(p){
       } else {
         if(state.cuotasSeleccionadas.includes(idx)) chip.classList.add('seleccionada');
         chip.onclick = ()=>{
-          const i = state.cuotasSeleccionadas.indexOf(idx);
-          if(i>=0) state.cuotasSeleccionadas.splice(i,1); else state.cuotasSeleccionadas.push(idx);
+          const k = state.cuotasSeleccionadas.indexOf(idx);
+          if(k>=0) state.cuotasSeleccionadas.splice(k,1); else state.cuotasSeleccionadas.push(idx);
           actualizarBarraSeleccion();
           renderCuotaGrid(p);
         };
@@ -3297,7 +3321,8 @@ function renderCuotaGrid(p){
       chip.onclick = ()=> abrirModalCuota(p.id, idx);
     }
     grid.appendChild(chip);
-  });
+    i++;
+  }
 }
 
 function esSeleccionableEnOrden(p, idx){
@@ -3358,7 +3383,7 @@ function abrirModalCuota(prestamoId, idx, esPagoAdelantado){
   // Caso especial: la cuota quedó en "abono" un día anterior, pero todavía falta plata
   // para completarla — hay que poder seguir cobrándosela, no queda "trabada".
   const esAbonoConSaldoPendiente = cu.estado==='abono' && cu.fechaPago!==hoy && (p.cuotaDiaria - cu.montoPagado) > 0;
-  const yaRegistrada = !esAbonoConSaldoPendiente && (cu.estado==='pagada' || cu.estado==='abono' || cu.estado==='no-pago');
+  const yaRegistrada = !esAbonoConSaldoPendiente && (cu.estado==='pagada' || cu.estado==='abono');
   const anteriorCompleta = idx===0 || p.cuotas[idx-1].estado!=='pendiente';
   const bloqueadaPorOrden = !yaRegistrada && !esAbonoConSaldoPendiente && !anteriorCompleta;
   const bloqueadaPorTiempo = yaRegistrada && cu.fechaPago !== hoy;
