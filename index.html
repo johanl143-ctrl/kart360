@@ -2769,6 +2769,7 @@ function abrirFicha(clienteId){
     btnNuevoCredito.classList.add('btn-primary');
     btnNuevoCredito.classList.remove('btn-secondary');
   }
+  btnNuevoCredito.classList.toggle('hidden', state.pantallaAnterior==='panel-admin' && inactivo);
 
   const box = document.getElementById('fichaCreditoActual');
   box.innerHTML = '';
