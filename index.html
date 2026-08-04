@@ -42,14 +42,14 @@
     --radius: 14px;
   }
   *{box-sizing:border-box;}
-  html,body{height:100%;}
+  html,body{height:100%; min-height:100%; min-height:-webkit-fill-available;}
   body{
     margin:0; background:var(--paper); font-family:'Inter',sans-serif; color:var(--ink);
     display:flex; justify-content:center; -webkit-font-smoothing:antialiased;
   }
   .num{font-family:'IBM Plex Mono',monospace; font-variant-numeric: tabular-nums;}
   .app{
-    width:100%; max-width:430px; min-height:100vh; min-height:100dvh; background:var(--paper); position:relative;
+    width:100%; max-width:430px; min-height:100vh; min-height:-webkit-fill-available; min-height:100dvh; min-height:var(--vh-real, 100vh); background:var(--paper); position:relative;
     display:flex; flex-direction:column; box-shadow: 0 0 60px rgba(0,0,0,0.18);
   }
   .topbar{
@@ -405,24 +405,23 @@
     </div>
     <div class="content">
       <div class="section-title" style="margin-top:0;">Datos personales</div>
-      <div class="field"><label>Nombre del cliente</label><input type="text" id="ncNombre" placeholder="Ej. Rosana Techera"></div>
-      <div class="field"><label>Teléfono (para WhatsApp)</label><input type="tel" id="ncTelefono" placeholder="099 123 456"></div>
-      <div class="field"><label>Cédula / documento</label><input type="text" id="ncDocumento" placeholder="4.123.456-7"></div>
-      <div class="field"><label>Dirección</label><input type="text" id="ncDireccion" placeholder="Barrio, calle y número"></div>
+      <div class="field"><label>Nombre del cliente <span style="color:var(--brick);">*</span></label><input type="text" id="ncNombre" placeholder="Ej. Rosana Techera" required></div>
+      <div class="field"><label>Teléfono (para WhatsApp) <span style="color:var(--brick);">*</span></label><input type="tel" id="ncTelefono" placeholder="099 123 456" required></div>
+      <div class="field"><label>Cédula / documento <span style="color:var(--brick);">*</span></label><input type="text" id="ncDocumento" placeholder="4.123.456-7" required></div>
+      <div class="field"><label>Dirección <span style="color:var(--brick);">*</span></label><input type="text" id="ncDireccion" placeholder="Barrio, calle y número" required></div>
 
       <div id="bloqueCreditoInicial">
         <div class="section-title">Datos del crédito</div>
         <div class="field"><label>Valor del producto</label><input type="number" id="ncValor" placeholder="0" oninput="recalcularNC()"></div>
         <div class="field"><label>Porcentaje de interés (%)</label><input type="number" id="ncInteres" placeholder="20" oninput="recalcularNC()"></div>
         <div class="field"><label>Cantidad de cuotas (hasta 30)</label><input type="number" id="ncCuotas" placeholder="30" max="30" oninput="recalcularNC()"></div>
-        <div class="field"><label>Fecha de inicio del crédito</label><input type="date" id="ncFecha"></div>
         <div class="calc-box" id="ncCalcBox">
           <div class="line"><span>Total a pagar</span><span class="num" id="ncCalcTotal">$0</span></div>
           <div class="line total"><span>Cuota diaria (auto)</span><span class="num" id="ncCalcCuota">$0</span></div>
         </div>
       </div>
 
-      <button class="btn btn-primary" onclick="guardarCliente()">Guardar cliente</button>
+      <button class="btn btn-primary" id="btnGuardarCliente" onclick="guardarCliente()">Guardar cliente</button>
     </div>
   </div>
 
@@ -1861,10 +1860,11 @@ function renderPanelAdmin(){
     const wrap = document.createElement('div');
     wrap.className = 'card'; wrap.style.cssText='margin-top:14px; padding:0 16px;';
     clientes.forEach(c=>{
+      const sinCredito = prestamosDe(c.id).length === 0;
       const color = colorCliente(c.id);
       const inactivo = clienteInactivo(c.id);
-      const pillClass = inactivo?'pill-muted':color==='rojo'?'pill-late':color==='amarillo'?'pill-warn':'pill-ok';
-      const pillText = inactivo?'Terminado':color==='rojo'?'Mora':color==='amarillo'?'Atrasado':'Al día';
+      const pillClass = sinCredito?'pill-muted':inactivo?'pill-muted':color==='rojo'?'pill-late':color==='amarillo'?'pill-warn':'pill-ok';
+      const pillText = sinCredito?'Sin crédito':inactivo?'Terminado':color==='rojo'?'Mora':color==='amarillo'?'Atrasado':'Al día';
       const row = document.createElement('div');
       row.className = 'list-row';
       row.innerHTML = `
@@ -2528,7 +2528,8 @@ function abrirNuevoCliente(){
   document.getElementById('bloqueCreditoInicial').classList.remove('hidden');
   ['ncNombre','ncTelefono','ncDocumento','ncDireccion','ncValor','ncInteres'].forEach(id=> document.getElementById(id).value='');
   document.getElementById('ncCuotas').value = '30';
-  document.getElementById('ncFecha').value = todayISO();
+  const btn = document.getElementById('btnGuardarCliente');
+  if(btn){ btn.disabled = false; btn.textContent = 'Guardar cliente'; }
   recalcularNC();
   nav('nuevo-cliente');
 }
@@ -2563,6 +2564,8 @@ function editarCliente(){
   document.getElementById('ncTelefono').value = c.telefono;
   document.getElementById('ncDocumento').value = c.documento;
   document.getElementById('ncDireccion').value = c.direccion;
+  const btn = document.getElementById('btnGuardarCliente');
+  if(btn){ btn.disabled = false; btn.textContent = 'Guardar cliente'; }
   nav('nuevo-cliente');
 }
 
@@ -2577,18 +2580,37 @@ function recalcularNC(){
 }
 
 async function guardarCliente(){
+  const btn = document.getElementById('btnGuardarCliente');
+  if(btn && btn.disabled) return; // ya se está guardando, ignorar el segundo toque
   const nombre = document.getElementById('ncNombre').value.trim();
-  if(!nombre){ toast('Ingresá al menos el nombre del cliente'); return; }
   const datos = {
     nombre,
     telefono: document.getElementById('ncTelefono').value.trim(),
     documento: document.getElementById('ncDocumento').value.trim(),
     direccion: document.getElementById('ncDireccion').value.trim(),
   };
+  if(!datos.nombre || !datos.telefono || !datos.documento || !datos.direccion){
+    toast('Completá todos los datos personales — ninguno puede quedar en blanco');
+    return;
+  }
+  if(!state.editandoCliente){
+    const yaExiste = state.clientes.some(c=>
+      c.nombre.trim().toLowerCase() === nombre.toLowerCase() ||
+      (datos.documento && c.documento && c.documento.trim() === datos.documento)
+    );
+    if(yaExiste){
+      toast('⚠️ Ya existe un cliente con ese nombre o documento — revisá antes de crear uno nuevo');
+      return;
+    }
+  }
+  if(btn){ btn.disabled = true; btn.textContent = 'Guardando...'; }
   if(state.editandoCliente){
     const c = state.clientes.find(cl=>cl.id===state.clienteActivoId);
     Object.assign(c, datos);
     toast('Cliente actualizado');
+    if(state.pantallaAnterior && state.pantallaAnterior !== 'ficha'){
+      state.pantallaAntesDeFicha = state.pantallaAnterior;
+    }
     abrirFicha(c.id);
     try{
       const { error } = await supabaseClient.from('clientes').update({
@@ -2605,8 +2627,8 @@ async function guardarCliente(){
   const valor = parseFloat(document.getElementById('ncValor').value) || 0;
   const interes = parseFloat(document.getElementById('ncInteres').value) || 0;
   const cuotas = Math.min(parseInt(document.getElementById('ncCuotas').value)||0, 30);
-  const fecha = document.getElementById('ncFecha').value || todayISO();
-  if(valor<=0 || cuotas<=0){ toast('Completá el valor del producto y la cantidad de cuotas'); return; }
+  const fecha = todayISO();
+  if(valor<=0 || cuotas<=0){ toast('Completá el valor del producto y la cantidad de cuotas'); if(btn){ btn.disabled=false; btn.textContent='Guardar cliente'; } return; }
 
   try{
     const { data: userData } = await supabaseClient.auth.getUser();
@@ -2654,10 +2676,13 @@ async function guardarCliente(){
     };
     state.prestamos.push(prestamoLocal);
     toast('Cliente y crédito creados');
+    ['ncNombre','ncTelefono','ncDocumento','ncDireccion','ncValor','ncInteres'].forEach(id=> document.getElementById(id).value='');
+    document.getElementById('ncCuotas').value = '30';
     abrirFicha(nuevo.id);
   } catch(e){
     console.error(e);
     toast('Error al guardar en la base: ' + e.message);
+    if(btn){ btn.disabled=false; btn.textContent='Guardar cliente'; }
   }
 }
 
@@ -2665,7 +2690,7 @@ async function guardarCliente(){
    FICHA DE CLIENTE
    ========================================================= */
 function abrirFicha(clienteId){
-  if(pantallaActiva() !== 'ficha'){
+  if(pantallaActiva() !== 'ficha' && pantallaActiva() !== 'nuevo-cliente'){
     state.pantallaAntesDeFicha = pantallaActiva();
   }
   state.clienteActivoId = clienteId;
@@ -3621,6 +3646,13 @@ function toast(msg){
 /* =========================================================
    INIT
    ========================================================= */
+function ajustarAlturaReal(){
+  document.documentElement.style.setProperty('--vh-real', window.innerHeight + 'px');
+}
+ajustarAlturaReal();
+window.addEventListener('resize', ajustarAlturaReal);
+window.addEventListener('orientationchange', ajustarAlturaReal);
+
 document.getElementById('codigoIngreso').addEventListener('keydown', e=>{
   if(e.key==='Enter') intentarIngresar();
 });
