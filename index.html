@@ -3315,9 +3315,12 @@ function telefonoWhatsapp(telefono){
   return t;
 }
 
+function montoPagadoEnFecha(prestamo, fecha){
+  return prestamo.cuotas.reduce((total,cu)=> cu.fechaPago===fecha ? total+(cu.montoPagado||0) : total, 0);
+}
+
 function montoPagadoHoyPorPrestamo(prestamo){
-  const hoy = todayISO();
-  return prestamo.cuotas.reduce((total,cu)=> cu.fechaPago===hoy ? total+(cu.montoPagado||0) : total, 0);
+  return montoPagadoEnFecha(prestamo, todayISO());
 }
 
 function preguntarEnviarComprobante(cliente, prestamo, cuota){
@@ -3339,8 +3342,10 @@ function preguntarEnviarComprobante(cliente, prestamo, cuota){
 function enviarComprobanteWhatsapp(cliente, prestamo, cuota){
   const tel = telefonoWhatsapp(cliente.telefono);
   const saldo = saldoRestante(prestamo);
-  const totalHoy = montoPagadoHoyPorPrestamo(prestamo);
-  const msg = `Hola ${cliente.nombre.split(' ')[0]}! Te confirmamos el pago de hoy (${cuota.fechaPago}) por un total de ${fmt(totalHoy)}. Saldo restante del crédito: ${fmt(saldo)}. ¡Gracias!`;
+  const fechaDelPago = cuota.fechaPago || todayISO();
+  const totalDeEseDia = montoPagadoEnFecha(prestamo, fechaDelPago);
+  const esHoy = fechaDelPago === todayISO();
+  const msg = `Hola ${cliente.nombre.split(' ')[0]}! Te confirmamos el pago de ${esHoy ? 'hoy' : fechaDelPago} (${cuota.fechaPago}) por un total de ${fmt(totalDeEseDia)}. Saldo restante del crédito: ${fmt(saldo)}. ¡Gracias!`;
   const url = `https://wa.me/${tel}?text=${encodeURIComponent(msg)}`;
   window.open(url, '_blank');
 }
