@@ -2632,11 +2632,19 @@ function recalcularNC(){
   const interes = parseFloat(document.getElementById('ncInteres').value) || 0;
   const inputCuotas = document.getElementById('ncCuotas');
   const maxCuotas = parseInt(inputCuotas.max) || 30;
-  let cuotas = parseInt(inputCuotas.value) || 0;
-  if(cuotas>maxCuotas){ cuotas=maxCuotas; inputCuotas.value=maxCuotas; }
   const total = valor + valor*interes/100;
   const manual = document.getElementById('ncManualCheck').checked;
   const cuotaManual = parseFloat(document.getElementById('ncCuotaManual').value) || 0;
+
+  let cuotas;
+  if(manual && cuotaManual > 0 && total > 0){
+    cuotas = Math.min(Math.ceil(total / cuotaManual), maxCuotas);
+    inputCuotas.value = cuotas;
+  } else {
+    cuotas = parseInt(inputCuotas.value) || 0;
+    if(cuotas>maxCuotas){ cuotas=maxCuotas; inputCuotas.value=maxCuotas; }
+  }
+
   document.getElementById('ncCalcTotal').textContent = fmt(total);
   document.getElementById('ncCalcCuota').textContent = fmt(manual ? cuotaManual : (cuotas>0 ? total/cuotas : 0));
 }
@@ -3054,11 +3062,19 @@ function recalcular(){
   const interes = parseFloat(document.getElementById('npInteres').value) || 0;
   const inputCuotasNP = document.getElementById('npCuotas');
   const maxCuotasNP = parseInt(inputCuotasNP.max) || 30;
-  let cuotas = parseInt(inputCuotasNP.value) || 0;
-  if(cuotas>maxCuotasNP){ cuotas=maxCuotasNP; inputCuotasNP.value=maxCuotasNP; }
   const totalPagar = valor + (valor*interes/100);
   const manual = document.getElementById('npManualCheck').checked;
   const cuotaManual = parseFloat(document.getElementById('npCuotaManual').value) || 0;
+
+  let cuotas;
+  if(manual && cuotaManual > 0 && totalPagar > 0){
+    cuotas = Math.min(Math.ceil(totalPagar / cuotaManual), maxCuotasNP);
+    inputCuotasNP.value = cuotas;
+  } else {
+    cuotas = parseInt(inputCuotasNP.value) || 0;
+    if(cuotas>maxCuotasNP){ cuotas=maxCuotasNP; inputCuotasNP.value=maxCuotasNP; }
+  }
+
   const cuotaAuto = cuotas>0 ? totalPagar/cuotas : 0;
   document.getElementById('calcCapital').textContent = fmt(valor);
   document.getElementById('calcInteres').textContent = fmt(valor*interes/100);
