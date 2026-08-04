@@ -414,7 +414,7 @@
         <div class="section-title">Datos del crédito</div>
         <div class="field"><label>Valor del producto</label><input type="number" id="ncValor" placeholder="0" oninput="recalcularNC()"></div>
         <div class="field"><label>Porcentaje de interés (%)</label><input type="number" id="ncInteres" placeholder="20" oninput="recalcularNC()"></div>
-        <div class="field"><label>Cantidad de cuotas (hasta 30)</label><input type="number" id="ncCuotas" placeholder="30" max="30" oninput="recalcularNC()"></div>
+        <div class="field"><label id="ncCuotasLabel">Cantidad de cuotas (hasta 30)</label><input type="number" id="ncCuotas" placeholder="30" max="30" oninput="recalcularNC()"></div>
         <div class="field">
           <label>Frecuencia de pago</label>
           <div class="toggle-row" style="margin-bottom:0;">
@@ -441,7 +441,7 @@
     <div class="content">
       <div class="field"><label>Valor del producto</label><input type="number" id="npValor" placeholder="0" oninput="recalcular()"></div>
       <div class="field"><label>Interés / recargo (%)</label><input type="number" id="npInteres" placeholder="20" oninput="recalcular()"></div>
-      <div class="field"><label>Cantidad de cuotas (máx. 30)</label><input type="number" id="npCuotas" placeholder="30" max="30" oninput="recalcular()"></div>
+      <div class="field"><label id="npCuotasLabel">Cantidad de cuotas (máx. 30)</label><input type="number" id="npCuotas" placeholder="30" max="30" oninput="recalcular()"></div>
       <div class="field">
         <label>Frecuencia de pago</label>
         <div class="toggle-row" style="margin-bottom:0;">
@@ -1392,6 +1392,19 @@ async function intentarIngresar(){
   state.usuarioRol = perfil.rol;
   state.usuarioId = sesion.user.id;
   state.usuarioNombre = perfil.nombre;
+
+  if(state.usuarioRol === 'cobrador'){
+    const { data: sesionHoy } = await supabaseClient.from('sesiones_ruta')
+      .select('hora_cierre').eq('vendedor_id', state.usuarioId).eq('fecha', todayISO()).maybeSingle();
+    if(sesionHoy && sesionHoy.hora_cierre){
+      await supabaseClient.auth.signOut();
+      state.requiereAdminParaIngresar = true;
+      errorEl.textContent = '';
+      renderLogin();
+      return;
+    }
+  }
+
   errorEl.textContent = 'Cargando datos...';
   await cargarDatosDesdeSupabase();
   activarRealtime();
@@ -2215,7 +2228,7 @@ async function pedirAutorizacionRemota(){
   try{
     const { data, error } = await supabaseClient
       .from('solicitudes_desbloqueo')
-      .insert({ dispositivo_nombre: navigator.userAgent.slice(0,80) })
+      .insert({ dispositivo_nombre: navigator.userAgent.slice(0,80), vendedor_id: state.usuarioId })
       .select()
       .single();
     if(error) throw error;
@@ -2471,11 +2484,12 @@ function renderInicio(){
 
 function iniciales(nombre){ return nombre.split(' ').filter(Boolean).slice(0,2).map(w=>w[0].toUpperCase()).join(''); }
 
-function pillEstadoCuotaHoy(cuota){
+function pillEstadoCuotaHoy(cuota, esSemanal){
   if(cuota.estado==='pagada') return ['pill-ok','Cobrado'];
   if(cuota.estado==='abono') return ['pill-warn','Abono'];
   if(cuota.estado==='no-pago') return ['pill-late','No pagó'];
   if(cuota.fecha > todayISO()) return ['pill-ok','Adelantado'];
+  if(esSemanal && cuota.fecha === todayISO()) return ['pill-warn','📢 Cobrar hoy'];
   return ['pill-neutral','Pendiente'];
 }
 
@@ -2484,10 +2498,11 @@ function filaCobro(cliente, prestamo, cuota, esPendiente, montoPagadoHoy){
   row.className = 'list-row' + (esPendiente===false ? ' dimmed' : '');
   row.onclick = ()=> abrirDetallePrestamo(prestamo.id);
   const color = colorCliente(cliente.id);
-  const [pillClass, pillText] = pillEstadoCuotaHoy(cuota);
+  const esSemanal = prestamo.frecuencia === 'semanal';
+  const [pillClass, pillText] = pillEstadoCuotaHoy(cuota, esSemanal);
   const montoMostrado = (montoPagadoHoy!=null) ? montoPagadoHoy : prestamo.cuotaDiaria;
   row.innerHTML = `
-    <div class="info"><div class="name">${escapeHtml(cliente.nombre)}</div><div class="meta num">${fmt(montoMostrado)} · cuota ${cuota.n}/${prestamo.nCuotas}</div></div>
+    <div class="info"><div class="name">${escapeHtml(cliente.nombre)} ${esSemanal ? '<span title="Crédito semanal" style="font-size:12px; font-weight:600; color:var(--teal); background:var(--teal-tint); padding:1px 6px; border-radius:6px; margin-left:4px;">🗓️ Sem</span>' : ''}</div><div class="meta num">${fmt(montoMostrado)} · cuota ${cuota.n}/${prestamo.nCuotas}</div></div>
     <span class="pill ${pillClass}">${pillText}</span>`;
   return row;
 }
@@ -2591,14 +2606,21 @@ function setFrecuenciaNC(f){
   document.getElementById('ncFrecDiario').classList.toggle('active', f==='diario');
   document.getElementById('ncFrecSemanal').classList.toggle('active', f==='semanal');
   document.getElementById('ncCalcCuotaLabel').textContent = f==='semanal' ? 'Cuota semanal (auto)' : 'Cuota diaria (auto)';
+  const maxCuotas = f==='semanal' ? 5 : 30;
+  const inputCuotas = document.getElementById('ncCuotas');
+  inputCuotas.max = maxCuotas;
+  document.getElementById('ncCuotasLabel').textContent = `Cantidad de cuotas (hasta ${maxCuotas})`;
+  if((parseInt(inputCuotas.value)||0) > maxCuotas){ inputCuotas.value = maxCuotas; }
   recalcularNC();
 }
 
 function recalcularNC(){
   const valor = parseFloat(document.getElementById('ncValor').value) || 0;
   const interes = parseFloat(document.getElementById('ncInteres').value) || 0;
-  let cuotas = parseInt(document.getElementById('ncCuotas').value) || 0;
-  if(cuotas>30){ cuotas=30; document.getElementById('ncCuotas').value=30; }
+  const inputCuotas = document.getElementById('ncCuotas');
+  const maxCuotas = parseInt(inputCuotas.max) || 30;
+  let cuotas = parseInt(inputCuotas.value) || 0;
+  if(cuotas>maxCuotas){ cuotas=maxCuotas; inputCuotas.value=maxCuotas; }
   const total = valor + valor*interes/100;
   document.getElementById('ncCalcTotal').textContent = fmt(total);
   document.getElementById('ncCalcCuota').textContent = fmt(cuotas>0 ? total/cuotas : 0);
@@ -2651,7 +2673,7 @@ async function guardarCliente(){
   }
   const valor = parseFloat(document.getElementById('ncValor').value) || 0;
   const interes = parseFloat(document.getElementById('ncInteres').value) || 0;
-  const cuotas = Math.min(parseInt(document.getElementById('ncCuotas').value)||0, 30);
+  const cuotas = Math.min(parseInt(document.getElementById('ncCuotas').value)||0, frecuenciaNC==='semanal' ? 5 : 30);
   const fecha = todayISO();
   if(valor<=0 || cuotas<=0){ toast('Completá el valor del producto y la cantidad de cuotas'); if(btn){ btn.disabled=false; btn.textContent='Guardar cliente'; } return; }
 
@@ -2992,13 +3014,21 @@ function setFrecuenciaNP(f){
   document.getElementById('calcCuotaLabel').textContent = manual
     ? (f==='semanal' ? 'Cuota semanal (auto — no se usa)' : 'Cuota diaria (auto — no se usa)')
     : (f==='semanal' ? 'Cuota semanal (auto)' : 'Cuota diaria (auto)');
+  const maxCuotas = f==='semanal' ? 5 : 30;
+  const inputCuotas = document.getElementById('npCuotas');
+  inputCuotas.max = maxCuotas;
+  document.getElementById('npCuotasLabel').textContent = `Cantidad de cuotas (máx. ${maxCuotas})`;
+  if((parseInt(inputCuotas.value)||0) > maxCuotas){ inputCuotas.value = maxCuotas; }
+  recalcular();
 }
 
 function recalcular(){
   const valor = parseFloat(document.getElementById('npValor').value) || 0;
   const interes = parseFloat(document.getElementById('npInteres').value) || 0;
-  let cuotas = parseInt(document.getElementById('npCuotas').value) || 0;
-  if(cuotas>30){ cuotas=30; document.getElementById('npCuotas').value=30; }
+  const inputCuotasNP = document.getElementById('npCuotas');
+  const maxCuotasNP = parseInt(inputCuotasNP.max) || 30;
+  let cuotas = parseInt(inputCuotasNP.value) || 0;
+  if(cuotas>maxCuotasNP){ cuotas=maxCuotasNP; inputCuotasNP.value=maxCuotasNP; }
   const totalPagar = valor + (valor*interes/100);
   const manual = document.getElementById('npManualCheck').checked;
   const cuotaManual = parseFloat(document.getElementById('npCuotaManual').value) || 0;
@@ -3011,7 +3041,7 @@ function recalcular(){
 async function guardarPrestamo(){
   const valor = parseFloat(document.getElementById('npValor').value) || 0;
   const interes = parseFloat(document.getElementById('npInteres').value) || 0;
-  let cuotas = Math.min(parseInt(document.getElementById('npCuotas').value)||0, 30);
+  let cuotas = Math.min(parseInt(document.getElementById('npCuotas').value)||0, frecuenciaNP==='semanal' ? 5 : 30);
   const fecha = document.getElementById('npFecha').value || todayISO();
   const manual = document.getElementById('npManualCheck').checked;
   const cuotaManual = parseFloat(document.getElementById('npCuotaManual').value) || 0;
@@ -3606,10 +3636,16 @@ async function abrirSolicitudesDesbloqueo(){
 
 async function resolverSolicitud(id, estado, row){
   const { data: userData } = await supabaseClient.auth.getUser();
+  const { data: solicitud, error: errorBuscar } = await supabaseClient
+    .from('solicitudes_desbloqueo').select('vendedor_id').eq('id', id).single();
   const { error } = await supabaseClient.from('solicitudes_desbloqueo').update({
     estado, resuelto_en: new Date().toISOString(), resuelto_por: userData && userData.user ? userData.user.id : null
   }).eq('id', id);
   if(error){ toast('⚠️ No se pudo actualizar la solicitud'); return; }
+  if(estado==='aprobado' && !errorBuscar && solicitud && solicitud.vendedor_id){
+    await supabaseClient.from('sesiones_ruta').update({ hora_cierre: null })
+      .eq('vendedor_id', solicitud.vendedor_id).eq('fecha', todayISO());
+  }
   toast(estado==='aprobado' ? 'Dispositivo autorizado' : 'Solicitud rechazada');
   row.remove();
   contarSolicitudesPendientes();
