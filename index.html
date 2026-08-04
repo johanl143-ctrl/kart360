@@ -428,6 +428,13 @@
           <div class="line"><span>Total a pagar</span><span class="num" id="ncCalcTotal">$0</span></div>
           <div class="line total"><span id="ncCalcCuotaLabel">Cuota diaria (auto)</span><span class="num" id="ncCalcCuota">$0</span></div>
         </div>
+        <div class="field">
+          <label><input type="checkbox" id="ncManualCheck" onchange="toggleManualNC()" style="width:auto; margin-right:6px;">Cuota manual</label>
+        </div>
+        <div class="field hidden" id="ncManualField">
+          <label>Valor de cuota manual <span style="color:var(--gold); font-weight:700;">(este es el que se va a usar)</span></label>
+          <input type="number" id="ncCuotaManual" placeholder="0" oninput="recalcularNC()" style="border-color:var(--gold); box-shadow:0 0 0 2px var(--gold-tint);">
+        </div>
       </div>
 
       <button class="btn btn-primary" id="btnGuardarCliente" onclick="guardarCliente()">Guardar cliente</button>
@@ -2559,6 +2566,9 @@ function abrirNuevoCliente(){
   document.getElementById('bloqueCreditoInicial').classList.remove('hidden');
   ['ncNombre','ncTelefono','ncDocumento','ncDireccion','ncValor','ncInteres'].forEach(id=> document.getElementById(id).value='');
   document.getElementById('ncCuotas').value = '30';
+  document.getElementById('ncManualCheck').checked = false;
+  document.getElementById('ncManualField').classList.add('hidden');
+  document.getElementById('ncCuotaManual').value = '';
   setFrecuenciaNC('diario');
   const btn = document.getElementById('btnGuardarCliente');
   if(btn){ btn.disabled = false; btn.textContent = 'Guardar cliente'; }
@@ -2606,7 +2616,9 @@ function setFrecuenciaNC(f){
   frecuenciaNC = f;
   document.getElementById('ncFrecDiario').classList.toggle('active', f==='diario');
   document.getElementById('ncFrecSemanal').classList.toggle('active', f==='semanal');
-  document.getElementById('ncCalcCuotaLabel').textContent = f==='semanal' ? 'Cuota semanal (auto)' : 'Cuota diaria (auto)';
+  document.getElementById('ncCalcCuotaLabel').textContent = document.getElementById('ncManualCheck').checked
+    ? (f==='semanal' ? 'Cuota semanal (auto — no se usa)' : 'Cuota diaria (auto — no se usa)')
+    : (f==='semanal' ? 'Cuota semanal (auto)' : 'Cuota diaria (auto)');
   const maxCuotas = f==='semanal' ? 5 : 30;
   const inputCuotas = document.getElementById('ncCuotas');
   inputCuotas.max = maxCuotas;
@@ -2623,8 +2635,10 @@ function recalcularNC(){
   let cuotas = parseInt(inputCuotas.value) || 0;
   if(cuotas>maxCuotas){ cuotas=maxCuotas; inputCuotas.value=maxCuotas; }
   const total = valor + valor*interes/100;
+  const manual = document.getElementById('ncManualCheck').checked;
+  const cuotaManual = parseFloat(document.getElementById('ncCuotaManual').value) || 0;
   document.getElementById('ncCalcTotal').textContent = fmt(total);
-  document.getElementById('ncCalcCuota').textContent = fmt(cuotas>0 ? total/cuotas : 0);
+  document.getElementById('ncCalcCuota').textContent = fmt(manual ? cuotaManual : (cuotas>0 ? total/cuotas : 0));
 }
 
 async function guardarCliente(){
@@ -2693,7 +2707,9 @@ async function guardarCliente(){
     if(errorCliente) throw errorCliente;
 
     const totalPagar = valor + valor*interes/100;
-    const cuotaDiaria = Math.round(totalPagar / cuotas);
+    const manualNC = document.getElementById('ncManualCheck').checked;
+    const cuotaManualNC = parseFloat(document.getElementById('ncCuotaManual').value) || 0;
+    const cuotaDiaria = manualNC ? cuotaManualNC : Math.round(totalPagar / cuotas);
     const diasEntreCuotas = frecuenciaNC === 'semanal' ? 7 : 1;
     const { data: prestamoDB, error: errorPrestamo } = await supabaseClient
       .from('prestamos')
@@ -2999,6 +3015,15 @@ function pedirAutorizacionAdmin(mensaje, onConfirm){
   if(!confirm(`${mensaje}\n\n¿Confirmás que autorizás este cambio como administrador?`)) return;
   onConfirm();
 }
+function toggleManualNC(){
+  const manual = document.getElementById('ncManualCheck').checked;
+  document.getElementById('ncManualField').classList.toggle('hidden', !manual);
+  document.getElementById('ncCalcCuotaLabel').textContent = manual
+    ? (frecuenciaNC==='semanal' ? 'Cuota semanal (auto — no se usa)' : 'Cuota diaria (auto — no se usa)')
+    : (frecuenciaNC==='semanal' ? 'Cuota semanal (auto)' : 'Cuota diaria (auto)');
+  recalcularNC();
+}
+
 function toggleManual(){
   const manual = document.getElementById('npManualCheck').checked;
   document.getElementById('npManualField').classList.toggle('hidden', !manual);
