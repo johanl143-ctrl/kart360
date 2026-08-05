@@ -1214,7 +1214,11 @@ async function depurarCredito(prestamoId){
 
 function saldoEnCajaReal(){
   let total = 0;
-  state.prestamos.forEach(p=>{ if(!esMiCliente(p.clienteId)) return; p.cuotas.forEach(cu=>{ if(cu.fechaPago) total += (cu.montoPagado||0); }); });
+  state.prestamos.forEach(p=>{
+    if(!esMiCliente(p.clienteId)) return;
+    p.cuotas.forEach(cu=>{ if(cu.fechaPago) total += (cu.montoPagado||0); });
+    total -= (p.valor||0); // el efectivo que salió de caja al entregar el crédito
+  });
   state.movimientos.forEach(m=>{ if(!esMiMovimiento(m)) return; total += (m.tipo==='ingreso' ? m.monto : -m.monto); });
   return total;
 }
@@ -1222,7 +1226,11 @@ function saldoEnCajaReal(){
 function saldoAlDiaAnterior(){
   const hoy = todayISO();
   let total = 0;
-  state.prestamos.forEach(p=>{ if(!esMiCliente(p.clienteId)) return; p.cuotas.forEach(cu=>{ if(cu.fechaPago && cu.fechaPago<hoy) total += (cu.montoPagado||0); }); });
+  state.prestamos.forEach(p=>{
+    if(!esMiCliente(p.clienteId)) return;
+    p.cuotas.forEach(cu=>{ if(cu.fechaPago && cu.fechaPago<hoy) total += (cu.montoPagado||0); });
+    if(p.creadoEn < hoy) total -= (p.valor||0);
+  });
   state.movimientos.forEach(m=>{ if(!esMiMovimiento(m)) return; if(m.fecha<hoy) total += (m.tipo==='ingreso' ? m.monto : -m.monto); });
   return total;
 }
