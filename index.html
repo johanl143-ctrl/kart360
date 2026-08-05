@@ -1077,7 +1077,7 @@ function prestamoFinalizado(p){ return !!p.depurado || p.cuotas.every(c=>c.estad
 
 function clienteInactivo(clienteId){
   const ps = prestamosDe(clienteId);
-  if(ps.length===0) return false;
+  if(ps.length===0) return true;
   return ps.every(p=>prestamoFinalizado(p));
 }
 
@@ -2975,14 +2975,18 @@ async function eliminarCreditoActual(){
   if(actual.creadoEn !== todayISO()){ toast('Este crédito ya no se puede eliminar — pasó su primer día'); return; }
   if(!confirm(`¿Eliminar el crédito de ${c.nombre}? El cliente queda en el sistema, solo se borra este crédito puntual. Esta acción no se puede deshacer.`)) return;
   state.prestamos = state.prestamos.filter(p=>p.id!==actual.id);
-  toast('Crédito eliminado');
   nav(state.pantallaAntesDeFicha || 'clientes');
   try{
-    const { error } = await supabaseClient.from('prestamos').delete().eq('id', actual.id);
+    const { data, error } = await supabaseClient.from('prestamos').delete().eq('id', actual.id).select();
     if(error) throw error;
+    if(!data || data.length===0){
+      throw new Error('No se pudo eliminar — probablemente no tenés permiso para hacerlo');
+    }
+    toast('Crédito eliminado');
   } catch(e){
     console.error('No se pudo eliminar el crédito en Supabase', e);
-    toast('⚠️ No se pudo eliminar en la base — revisá tu conexión');
+    state.prestamos.push(actual);
+    toast('⚠️ ' + (e.message || 'No se pudo eliminar en la base'));
   }
 }
 
@@ -2990,16 +2994,22 @@ async function eliminarClienteActual(){
   const clienteId = state.clienteActivoId;
   const c = state.clientes.find(cl=>cl.id===clienteId);
   if(!confirm(`¿Eliminar a ${c.nombre} y su crédito? Esta acción no se puede deshacer.`)) return;
+  const prestamosDelCliente = state.prestamos.filter(p=>p.clienteId===clienteId);
   state.clientes = state.clientes.filter(cl=>cl.id!==clienteId);
   state.prestamos = state.prestamos.filter(p=>p.clienteId!==clienteId);
-  toast('Cliente eliminado');
   nav(state.pantallaAnterior || 'clientes');
   try{
-    const { error } = await supabaseClient.from('clientes').delete().eq('id', clienteId);
+    const { data, error } = await supabaseClient.from('clientes').delete().eq('id', clienteId).select();
     if(error) throw error;
+    if(!data || data.length===0){
+      throw new Error('No se pudo eliminar — probablemente no tenés permiso para hacerlo');
+    }
+    toast('Cliente eliminado');
   } catch(e){
     console.error('No se pudo eliminar el cliente en Supabase', e);
-    toast('⚠️ No se pudo eliminar en la base — revisá tu conexión');
+    state.clientes.push(c);
+    state.prestamos.push(...prestamosDelCliente);
+    toast('⚠️ ' + (e.message || 'No se pudo eliminar en la base'));
   }
 }
 
