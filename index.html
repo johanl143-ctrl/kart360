@@ -3460,9 +3460,16 @@ function abrirModalCuota(prestamoId, idx, esPagoAdelantado){
         campo.style.display='block';
         backdrop.querySelector('#btnAbono').textContent = '🟡 Confirmar abono';
       } else {
-        const val = parseFloat(backdrop.querySelector('#montoAbono').value) || Math.round(p.cuotaDiaria/2);
+        const inputAbono = backdrop.querySelector('#montoAbono').value;
+        const val = inputAbono.trim()==='' ? Math.round(p.cuotaDiaria/2) : (parseFloat(inputAbono) || 0);
+        let resultado;
         const cuotasAntes = p.cuotas.map(c2=>({id:c2.id, estado:c2.estado, montoPagado:c2.montoPagado, fechaPago:c2.fechaPago, loteId:c2.loteId}));
-        const resultado = distribuirPago(p, val);
+        if(val === 0){
+          marcarPagoInterno(cu, 'abono', 0, todayISO());
+          resultado = { cuotasCompletadas:0, cuotasConAbono:1, restante:0, esCero:true };
+        } else {
+          resultado = distribuirPago(p, val);
+        }
         const cuotasASincronizar = p.cuotas.filter((c2,idx)=>{
           const antes = cuotasAntes[idx];
           return antes.estado!==c2.estado || antes.montoPagado!==c2.montoPagado;
@@ -3471,7 +3478,7 @@ function abrirModalCuota(prestamoId, idx, esPagoAdelantado){
         if(cliente.telefono) preguntarEnviarComprobante(cliente, p, cu);
         backdrop.remove();
         renderCuotaGrid(p);
-        toast(mensajeDistribucion(resultado));
+        toast(resultado.esCero ? '⚠️ Abono registrado en $0 — no se descontó nada del saldo' : mensajeDistribucion(resultado));
         nav('inicio');
         setTabInicio('cobrados');
       }
