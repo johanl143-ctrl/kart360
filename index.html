@@ -1749,7 +1749,7 @@ function calcularDiarioVendedor(vendedorId){
 
 function calcularReportePorRango(vendedorId, desde, hasta){
   const prestamosV = prestamosDeVendedor(vendedorId);
-  let recaudo=0, carteraFinal=0, carteraSinInteres=0, ventas=0;
+  let recaudo=0, carteraFinal=0, carteraSinInteres=0, ventas=0, ganancia=0;
   const diasConActividad = new Set();
   prestamosV.forEach(p=>{
     if(!p.depurado) carteraFinal += saldoRestante(p);
@@ -1758,6 +1758,7 @@ function calcularReportePorRango(vendedorId, desde, hasta){
     p.cuotas.forEach(cu=>{
       if(cu.fechaPago && cu.fechaPago >= desde && cu.fechaPago <= hasta){
         recaudo += (cu.montoPagado||0);
+        ganancia += interesRecuperadoDePago(p, cu.montoPagado||0);
         diasConActividad.add(cu.fechaPago);
       }
     });
@@ -1772,7 +1773,7 @@ function calcularReportePorRango(vendedorId, desde, hasta){
     carteraSinInteres: Math.round(carteraSinInteres),
     ventas: Math.round(ventas),
     recaudo: Math.round(recaudo),
-    ganancia: Math.round(recaudo*0.3),
+    ganancia: Math.round(ganancia),
     carteraFinal: Math.round(carteraFinal),
     diasTrabajados: diasConActividad.size,
     fechasTrabajadas: Array.from(diasConActividad).sort(),
@@ -1782,7 +1783,7 @@ function calcularReportePorRango(vendedorId, desde, hasta){
 function calcularMensualVendedor(vendedorId){
   const hoy = todayISO();
   const prestamosV = prestamosDeVendedor(vendedorId);
-  let recaudoMes=0, carteraFinal=0, carteraSinInteres=0, ventasMes=0;
+  let recaudoMes=0, carteraFinal=0, carteraSinInteres=0, ventasMes=0, gananciaMes=0;
   const diasConActividad = new Set();
   prestamosV.forEach(p=>{
     if(!p.depurado) carteraFinal += saldoRestante(p);
@@ -1791,6 +1792,7 @@ function calcularMensualVendedor(vendedorId){
     p.cuotas.forEach(cu=>{
       if(cu.fechaPago && esMismoMes(cu.fechaPago, hoy)){
         recaudoMes += (cu.montoPagado||0);
+        gananciaMes += interesRecuperadoDePago(p, cu.montoPagado||0);
         diasConActividad.add(cu.fechaPago);
       }
     });
@@ -1805,7 +1807,7 @@ function calcularMensualVendedor(vendedorId){
     carteraSinInteres: Math.round(carteraSinInteres),
     ventas: Math.round(ventasMes),
     recaudo: Math.round(recaudoMes),
-    ganancia: Math.round(recaudoMes*0.3),
+    ganancia: Math.round(gananciaMes),
     carteraFinal: Math.round(carteraFinal),
     diasTrabajados: diasConActividad.size,
     fechasTrabajadas: Array.from(diasConActividad).sort(),
