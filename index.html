@@ -3458,7 +3458,9 @@ function abrirModalCuota(prestamoId, idx, esPagoAdelantado){
 
   if(!bloqueadaPorOrden && !bloqueadaPorTiempo && !yaRegistrada){
     if(backdrop.querySelector('#btnPagada')){
-      backdrop.querySelector('#btnPagada').onclick = async ()=>{
+      backdrop.querySelector('#btnPagada').onclick = async function(){
+        if(this.disabled) return;
+        this.disabled = true; this.textContent = 'Guardando...';
         marcarPagoInterno(cu,'pagada',p.cuotaDiaria,todayISO());
         await sincronizarCuota(cu);
         if(cliente.telefono) preguntarEnviarComprobante(cliente, p, cu);
@@ -3466,7 +3468,9 @@ function abrirModalCuota(prestamoId, idx, esPagoAdelantado){
       };
     }
     if(backdrop.querySelector('#btnNoPago')){
-      backdrop.querySelector('#btnNoPago').onclick = async ()=>{
+      backdrop.querySelector('#btnNoPago').onclick = async function(){
+        if(this.disabled) return;
+        this.disabled = true; this.textContent = 'Guardando...';
         cu.estado='no-pago'; cu.montoPagado=0; cu.fechaPago=todayISO(); cu.loteId=uidReal();
         await sincronizarCuota(cu);
         finCambioCuota(p, backdrop, true, 'Cliente marcado como no pagó', 'cobrados');
@@ -3478,6 +3482,10 @@ function abrirModalCuota(prestamoId, idx, esPagoAdelantado){
         campo.style.display='block';
         backdrop.querySelector('#btnAbono').textContent = '🟡 Confirmar abono';
       } else {
+        const btnAbonoEl = backdrop.querySelector('#btnAbono');
+        if(btnAbonoEl.disabled) return; // ya se está procesando, ignorar el segundo toque
+        btnAbonoEl.disabled = true;
+        btnAbonoEl.textContent = 'Guardando...';
         const inputAbono = backdrop.querySelector('#montoAbono').value;
         const val = inputAbono.trim()==='' ? Math.round(p.cuotaDiaria/2) : (parseFloat(inputAbono) || 0);
         let resultado;
