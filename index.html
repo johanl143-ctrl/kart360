@@ -1499,7 +1499,6 @@ function abrirMenuCobradoresPanel(){
       <button class="btn btn-secondary" style="text-align:left; padding-left:16px; margin-top:8px;" id="optModificarCobradorPanel">✏️ Modificar cobrador existente</button>
       <button class="btn btn-secondary" style="text-align:left; padding-left:16px; margin-top:8px;" id="optCambiarPinPanel">🔑 Cambiar PIN</button>
       <button class="btn btn-secondary" style="text-align:left; padding-left:16px; margin-top:8px; color:var(--brick);" id="optEliminarCobradorPanel">🗑️ Eliminar cobrador</button>
-      <button class="btn btn-secondary" style="margin-top:14px;" onclick="this.closest('.modal-backdrop').remove();">Cancelar</button>
     </div>`;
   document.getElementById('app').appendChild(backdrop);
   backdrop.querySelector('#optAgregarCobradorPanel').onclick = ()=>{ backdrop.remove(); avisoAgregarCobrador(); };
@@ -1518,7 +1517,6 @@ function abrirCambiarPin(){
       <div class="sub">¿De quién es el PIN que querés cambiar?</div>
       <button class="btn btn-secondary" style="text-align:left; padding-left:16px;" id="optPinPropio">🔑 Mi propio PIN (administrador)</button>
       <button class="btn btn-secondary" style="text-align:left; padding-left:16px; margin-top:8px;" id="optPinCobrador">👤 El PIN del cobrador</button>
-      <button class="btn btn-secondary" style="margin-top:14px;" onclick="this.closest('.modal-backdrop').remove();">Cancelar</button>
     </div>`;
   document.getElementById('app').appendChild(backdrop);
   backdrop.querySelector('#optPinPropio').onclick = ()=>{ backdrop.remove(); abrirCambiarPinPropio(); };
@@ -1542,7 +1540,6 @@ function abrirCambiarPinPropio(){
         <input type="password" id="inpPinNuevoPropio2" maxlength="6" inputmode="numeric" placeholder="6 dígitos" style="width:100%; padding:11px 13px; border-radius:10px; border:1.5px solid var(--line); font-size:14px;">
       </div>
       <button class="btn btn-primary" id="btnGuardarPinPropio">Guardar PIN nuevo</button>
-      <button class="btn btn-secondary" onclick="this.closest('.modal-backdrop').remove();">Cancelar</button>
     </div>`;
   document.getElementById('app').appendChild(backdrop);
   backdrop.querySelector('#btnGuardarPinPropio').onclick = async ()=>{
@@ -1582,7 +1579,6 @@ function avisoCambiarPinCobrador(){
         <input type="password" id="inpPinCobradorNuevo" maxlength="6" inputmode="numeric" placeholder="6 dígitos" style="width:100%; padding:11px 13px; border-radius:10px; border:1.5px solid var(--line); font-size:14px;">
       </div>
       <button class="btn btn-primary" id="btnGuardarPinCobrador">Guardar PIN nuevo</button>
-      <button class="btn btn-secondary" onclick="this.closest('.modal-backdrop').remove();">Cancelar</button>
     </div>`;
   document.getElementById('app').appendChild(backdrop);
   backdrop.querySelector('#btnGuardarPinCobrador').onclick = async ()=>{
@@ -1640,7 +1636,6 @@ function abrirModificarCobrador(){
         <input type="text" id="inpNombreModPanel" value="${escapeHtml(cobradoresDelPanel[0].nombre)}" style="width:100%; padding:11px 13px; border-radius:10px; border:1.5px solid var(--line); font-size:14px;">
       </div>
       <button class="btn btn-primary" id="btnGuardarModPanel">Guardar</button>
-      <button class="btn btn-secondary" onclick="this.closest('.modal-backdrop').remove();">Cancelar</button>
     </div>`;
   document.getElementById('app').appendChild(backdrop);
   const sel = backdrop.querySelector('#selCobradorModPanel');
@@ -1680,7 +1675,6 @@ function abrirEliminarCobrador(){
         </select>
       </div>
       <button class="btn" style="background:var(--brick-tint); color:var(--brick);" id="btnConfirmarElimPanel">Eliminar</button>
-      <button class="btn btn-secondary" onclick="this.closest('.modal-backdrop').remove();">Cancelar</button>
     </div>`;
   document.getElementById('app').appendChild(backdrop);
   backdrop.querySelector('#btnConfirmarElimPanel').onclick = async ()=>{
@@ -1953,7 +1947,6 @@ function abrirMenuAccionesPanel(clienteId){
       <button class="btn btn-secondary" style="text-align:left; padding-left:16px;" id="optEditarPanel">✏️ Editar (datos y crédito)</button>
       <button class="btn btn-secondary" style="text-align:left; padding-left:16px; margin-top:8px;" id="optDepurarPanel">🧹 Depurar cliente</button>
       <button class="btn btn-secondary" style="text-align:left; padding-left:16px; margin-top:8px;" id="optEliminarPanel">🗑️ Eliminar cliente</button>
-      <button class="btn btn-secondary" style="margin-top:14px;" onclick="this.closest('.modal-backdrop').remove();">Cancelar</button>
     </div>`;
   document.getElementById('app').appendChild(backdrop);
 
@@ -2583,7 +2576,6 @@ function abrirMenuEditarCliente(){
       <div class="sub">Elegí qué querés modificar.</div>
       <button class="btn btn-secondary" style="text-align:left; padding-left:16px;" id="optEditarDatos">📝 Datos personales</button>
       ${puedeEditarCredito ? '<button class="btn btn-secondary" style="text-align:left; padding-left:16px; margin-top:8px;" id="optEditarCredito">💳 Crédito (cuotas, interés)</button>' : ''}
-      <button class="btn btn-secondary" style="margin-top:14px;" onclick="this.closest('.modal-backdrop').remove();">Cancelar</button>
     </div>`;
   document.getElementById('app').appendChild(backdrop);
   backdrop.querySelector('#optEditarDatos').onclick = ()=>{ backdrop.remove(); editarCliente(); };
