@@ -196,7 +196,7 @@
   .legend span{ display:inline-flex; align-items:center; gap:5px; }
   .legend i{ width:10px;height:10px; border-radius:3px; display:inline-block; }
 
-  .modal-backdrop{ position:absolute; inset:0; background: rgba(28,36,48,0.45); z-index:50; display:flex; align-items:flex-end; justify-content:center; }
+  .modal-backdrop{ position:fixed; inset:0; background: rgba(28,36,48,0.45); z-index:50; display:flex; align-items:flex-end; justify-content:center; }
   .modal-sheet{ background:var(--paper); width:100%; max-width:430px; border-radius:20px 20px 0 0; padding:22px 20px 26px 20px; max-height:85vh; overflow-y:auto; }
   .scroll-fino{ scrollbar-width:thin; }
   .scroll-fino::-webkit-scrollbar{ width:5px; }
@@ -220,7 +220,7 @@
   .nav-item .ic{ font-size:19px; }
   .nav-item.active{ color:var(--teal); }
 
-  .toast{ position:absolute; bottom:100px; left:50%; transform:translateX(-50%); background: var(--ink); color:#fff; padding:11px 18px; border-radius:10px; font-size:13.5px; z-index:80; opacity:0; transition: opacity .25s ease, transform .25s ease; pointer-events:none; font-weight:500; white-space:normal; max-width:85%; width:max-content; text-align:center; line-height:1.4; }
+  .toast{ position:fixed; bottom:100px; left:50%; transform:translateX(-50%); background: var(--ink); color:#fff; padding:11px 18px; border-radius:10px; font-size:13.5px; z-index:80; opacity:0; transition: opacity .25s ease, transform .25s ease; pointer-events:none; font-weight:500; white-space:normal; max-width:85%; width:max-content; text-align:center; line-height:1.4; }
   .toast.show{ opacity:1; transform:translateX(-50%) translateY(-6px); }
 
   .report-card{ display:flex; justify-content:space-between; align-items:center; padding:14px 4px; border-bottom:1px solid var(--line);}
