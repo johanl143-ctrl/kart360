@@ -383,7 +383,6 @@
       <button class="btn btn-primary" style="margin-top:10px;" onclick="abrirNuevoPrestamo()" id="btnNuevoCreditoFicha">+ Nuevo crédito / renovar</button>
       <button class="btn btn-secondary" style="margin-top:10px;" onclick="state.pantallaAnterior='ficha'; editarCliente()" id="btnEditarClienteFicha">✏️ Editar cliente</button>
       <button class="btn btn-danger hidden" style="margin-top:10px;" onclick="eliminarCreditoActual()" id="btnEliminarCliente">🗑️ ELIMINAR CRÉDITO</button>
-      <p class="hidden" id="notaNoEliminable" style="font-size:11.5px; color:var(--muted); margin-top:8px; text-align:center;">Este crédito ya no se puede eliminar: pasó su primer día. Para eliminar al cliente por completo, un administrador puede hacerlo desde el Panel de Administrador.</p>
     </div>
   </div>
 
@@ -2754,9 +2753,9 @@ function abrirFicha(clienteId){
   document.getElementById('fichaDireccion').textContent = c.direccion || '—';
 
   const inactivo = clienteInactivo(clienteId);
-  const color = colorCliente(clienteId);
-  const pillClass = inactivo ? 'pill-muted' : color==='rojo' ? 'pill-late' : color==='amarillo' ? 'pill-warn' : 'pill-ok';
-  const pillText = inactivo ? '⏸️ Lista de espera' : color==='rojo' ? '🔴 Mora' : color==='amarillo' ? '🟡 Atrasado' : '🟢 Al día';
+  const tieneAtraso = contarAtrasadas(clienteId) > 0;
+  const pillClass = inactivo ? 'pill-muted' : tieneAtraso ? 'pill-late' : 'pill-ok';
+  const pillText = inactivo ? '⏸️ Lista de espera' : tieneAtraso ? '🔴 Atrasado' : '🟢 Al día';
   document.getElementById('fichaPillEstado').innerHTML = `<span class="pill ${pillClass}">${pillText}</span>`;
 
   const ps = prestamosDe(clienteId);
@@ -2799,7 +2798,6 @@ function abrirFicha(clienteId){
 
   const puedeEliminar = !!actual && actual.creadoEn === todayISO() && !clienteInactivo(clienteId);
   document.getElementById('btnEliminarCliente').classList.toggle('hidden', !puedeEliminar);
-  document.getElementById('notaNoEliminable').classList.toggle('hidden', puedeEliminar || !actual);
   document.getElementById('btnVerHistorialPagos').classList.toggle('hidden', !actual || state.pantallaAnterior==='panel-admin');
   document.getElementById('btnEditarClienteFicha').classList.toggle('hidden', state.pantallaAnterior==='panel-admin');
   document.getElementById('btnPagoAdelantado').classList.toggle('hidden', !(actual && actual.creadoEn===todayISO() && !prestamoFinalizado(actual)));
