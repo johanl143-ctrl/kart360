@@ -326,6 +326,7 @@
         <div class="toggle-btn active" id="tabPendientes" onclick="setTabInicio('pendientes')">📋 Pendientes <span id="tabCountPendientes">(0)</span></div>
         <div class="toggle-btn" id="tabCobrados" onclick="setTabInicio('cobrados')">✅ Cobrados <span id="tabCountCobrados">(0)</span></div>
       </div>
+      <input type="text" id="buscadorInicio" placeholder="🔍 Buscar cliente por nombre" oninput="renderInicio()" style="width:100%; margin:10px 0 4px 0; padding:11px 14px; border-radius:12px; border:1.5px solid var(--line); font-size:14px;">
       <div id="folderPendientes">
         <div class="card" id="listaPendientesHoy" style="padding:0 16px;"></div>
       </div>
@@ -2294,6 +2295,11 @@ function proximaCuotaAccionable(p){
   // (pago parcial) y todavía hay saldo sin cubrir, seguir mostrándola para cobrar.
   const ultima = p.cuotas[p.cuotas.length-1];
   if(ultima && ultima.estado==='abono' && saldoRestante(p) > 0) return ultima;
+  // Las cuotas marcadas "No pagó" siempre se pueden volver a gestionar,
+  // sin importar el día — si no queda ninguna otra cosa pendiente, mostrar
+  // la más antigua sin pagar para seguir el orden correcto.
+  const noPagoMasVieja = p.cuotas.find(cu => cu.estado==='no-pago');
+  if(noPagoMasVieja) return noPagoMasVieja;
   return null;
 }
 
@@ -2444,9 +2450,15 @@ async function moverClienteOrganizarRuta(clienteId, direccion){
 
 function renderInicio(){
   document.getElementById('inicioDate').textContent = new Date().toLocaleDateString('es-UY', {weekday:'long', day:'numeric', month:'long'});
+  const q = (document.getElementById('buscadorInicio').value || '').toLowerCase().trim();
   const hoyPorCliente = cuotasDeHoyPorCliente();
-  const idsConPendientes = Object.keys(hoyPorCliente).filter(id=>hoyPorCliente[id].pendientes.length>0);
-  const idsConCobrados = Object.keys(hoyPorCliente).filter(id=>hoyPorCliente[id].cobradas.length>0);
+  const coincide = (id)=>{
+    if(!q) return true;
+    const cliente = state.clientes.find(c=>c.id===id);
+    return !!cliente && cliente.nombre.toLowerCase().includes(q);
+  };
+  const idsConPendientes = Object.keys(hoyPorCliente).filter(id=>hoyPorCliente[id].pendientes.length>0 && coincide(id));
+  const idsConCobrados = Object.keys(hoyPorCliente).filter(id=>hoyPorCliente[id].cobradas.length>0 && coincide(id));
 
   document.getElementById('tabCountPendientes').textContent = `(${idsConPendientes.length})`;
   document.getElementById('tabCountCobrados').textContent = `(${idsConCobrados.length})`;
@@ -2521,7 +2533,7 @@ function renderClientes(){
     const inactivo = clienteInactivo(c.id);
     const actual = creditoActualDe(c.id);
     const esNuevoHoy = !!actual && actual.creadoEn === hoy;
-    const matchF = state.filtroCliente==='inactivo' ? inactivo : esNuevoHoy;
+    const matchF = q ? true : (state.filtroCliente==='inactivo' ? inactivo : esNuevoHoy);
     return matchQ && matchF && esMiCliente(c.id);
   });
 
