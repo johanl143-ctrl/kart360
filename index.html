@@ -2289,7 +2289,7 @@ function ordenarPorPrioridad(clientesIds){
    ========================================================= */
 function proximaCuotaAccionable(p){
   if(p.depurado) return null;
-  const pendiente = p.cuotas.find(cu => cu.estado==='pendiente');
+  const pendiente = p.cuotas.find(cu => cu.estado==='pendiente' || (cu.estado==='abono' && (cu.montoPagado||0)===0));
   if(pendiente) return pendiente;
   // Si no queda ninguna cuota "pendiente", pero la última quedó en abono
   // (pago parcial) y todavía hay saldo sin cubrir, seguir mostrándola para cobrar.
@@ -2748,8 +2748,12 @@ async function guardarCliente(){
    FICHA DE CLIENTE
    ========================================================= */
 function abrirFicha(clienteId){
-  if(pantallaActiva() !== 'ficha' && pantallaActiva() !== 'nuevo-cliente'){
-    state.pantallaAntesDeFicha = pantallaActiva();
+  // Las sub-pantallas que se abren DESDE la ficha no deben pisar el punto de retorno:
+  // si no, la flecha atrás queda rebotando entre esas dos pantallas sin poder salir.
+  const subPantallasDeFicha = ['ficha','nuevo-cliente','nuevo-prestamo','detalle-prestamo','historial-pagos'];
+  const desde = pantallaActiva();
+  if(!subPantallasDeFicha.includes(desde)){
+    state.pantallaAntesDeFicha = desde;
   }
   state.clienteActivoId = clienteId;
   const c = state.clientes.find(cl=>cl.id===clienteId);
@@ -3266,8 +3270,9 @@ function renderCuotaGrid(p){
     }
 
     const chip = document.createElement('div');
-    let cls = cu.estado;
-    if(cu.estado==='pendiente' && cuotaEstaAtrasada(cu,hoy)) cls = 'vencida';
+    const esAbonoCero = cu.estado==='abono' && (cu.montoPagado||0)===0;
+    let cls = esAbonoCero ? 'pendiente' : cu.estado;
+    if(cls==='pendiente' && cuotaEstaAtrasada(cu,hoy)) cls = 'vencida';
     chip.className = 'cuota-chip ' + cls;
     if(cu.fecha===hoy) chip.classList.add('hoy');
     const montoTxt = (cu.montoPagado>0) ? `<div class="monto">${Math.round(cu.montoPagado).toLocaleString('es-UY')}</div>` : '';
@@ -3358,8 +3363,11 @@ function abrirModalCuota(prestamoId, idx, esPagoAdelantado){
   // Caso especial: la cuota quedó en "abono" un día anterior, pero todavía falta plata
   // para completarla — hay que poder seguir cobrándosela, no queda "trabada".
   const esAbonoConSaldoPendiente = cu.estado==='abono' && cu.fechaPago!==hoy && (p.cuotaDiaria - cu.montoPagado) > 0;
-  const yaRegistrada = !esAbonoConSaldoPendiente && (cu.estado==='pagada' || cu.estado==='abono');
-  const anteriorCompleta = idx===0 || p.cuotas[idx-1].estado!=='pendiente';
+  // Un abono en $0 no descontó nada: se trata como si la cuota siguiera sin tocar.
+  const esAbonoCero = cu.estado==='abono' && (cu.montoPagado||0)===0;
+  const yaRegistrada = !esAbonoConSaldoPendiente && !esAbonoCero && (cu.estado==='pagada' || cu.estado==='abono' || (cu.estado==='no-pago' && cu.fechaPago===hoy));
+  const anteriorPendiente = idx>0 && (p.cuotas[idx-1].estado==='pendiente' || (p.cuotas[idx-1].estado==='abono' && (p.cuotas[idx-1].montoPagado||0)===0));
+  const anteriorCompleta = idx===0 || !anteriorPendiente;
   const bloqueadaPorOrden = !yaRegistrada && !esAbonoConSaldoPendiente && !anteriorCompleta;
   const bloqueadaPorTiempo = yaRegistrada && cu.fechaPago !== hoy;
   const backdrop = document.createElement('div');
@@ -3367,8 +3375,9 @@ function abrirModalCuota(prestamoId, idx, esPagoAdelantado){
   backdrop.onclick = (e)=>{ if(e.target===backdrop) backdrop.remove(); };
   backdrop.innerHTML = `
     <div class="modal-sheet">
-      <h3>Cuota ${cu.n} de ${p.nCuotas}</h3>
-      <div class="sub">Vence el ${cu.fecha} · ${fmt(p.cuotaDiaria)}${cu.fechaPago ? ' · Gestionada el '+cu.fechaPago : ''}</div>
+      <h3 style="font-size:19px; margin-bottom:2px;">Cuota ${cu.n} de ${p.nCuotas}</h3>
+      <div class="num" style="font-size:30px; font-weight:700; color:var(--teal); text-align:center; line-height:1.2; margin:6px 0 2px 0;">${fmt(p.cuotaDiaria)}</div>
+      <div class="sub" style="font-size:13.5px; margin-bottom:4px;">Vence el ${fechaConDia(cu.fecha)}${cu.fechaPago ? ' · Gestionada el '+cu.fechaPago : ''}</div>
 
       ${bloqueadaPorOrden ? `
         <div class="alert-row">
@@ -3379,9 +3388,6 @@ function abrirModalCuota(prestamoId, idx, esPagoAdelantado){
           🔒 Esta cuota se gestionó el ${cu.fechaPago}, un día distinto a hoy. Ya no se puede modificar, eliminar ni volver a pendiente.
         </div>
       ` : yaRegistrada ? `
-        <div class="alert-row" style="background:var(--teal-tint); border-color:rgba(31,95,91,0.25); color:var(--teal-dark);">
-          Esta cuota ya tiene un pago registrado hoy. Para volver a cobrarla, primero tocá "Volver a pendiente".
-        </div>
         <button class="btn btn-secondary" id="btnPendiente" style="margin-top:12px;">↺ Volver a pendiente</button>
       ` : esPagoAdelantado ? `
         <div class="btn-block-row">
@@ -3393,6 +3399,11 @@ function abrirModalCuota(prestamoId, idx, esPagoAdelantado){
           <span class="kv-sub" style="margin-top:6px;">Si alcanza para más, el sobrante se aplica solo a las próximas cuotas pendientes (empezando por la más vieja).</span>
         </div>
       ` : `
+        ${cu.estado==='no-pago' ? `
+        <div class="alert-row" style="background:var(--brick-tint); border-color:rgba(181,72,42,0.25); color:var(--brick);">
+          Esta cuota quedó marcada "No pagó" un día anterior. Podés cobrarla ahora.
+        </div>
+        ` : ''}
         <div class="btn-block-row">
           <button class="btn btn-primary" id="btnPagada">✅ Pagado</button>
           <button class="btn btn-gold" id="btnAbono">🟡 Abono</button>
@@ -3409,7 +3420,6 @@ function abrirModalCuota(prestamoId, idx, esPagoAdelantado){
 
       ${(cu.estado==='pagada' || cu.estado==='abono') ? `<button class="btn btn-whatsapp" id="btnWhatsapp" style="margin-top:12px;">💬 Enviar comprobante por WhatsApp</button>` : ''}
 
-      <button class="btn btn-secondary" style="margin-top:16px;" id="btnCerrar">Cancelar</button>
     </div>`;
   document.getElementById('app').appendChild(backdrop);
 
@@ -3487,7 +3497,6 @@ function abrirModalCuota(prestamoId, idx, esPagoAdelantado){
   if(backdrop.querySelector('#btnWhatsapp')){
     backdrop.querySelector('#btnWhatsapp').onclick = ()=> enviarComprobanteWhatsapp(cliente, p, cu);
   }
-  backdrop.querySelector('#btnCerrar').onclick = ()=> backdrop.remove();
 }
 
 function finCambioCuota(p, backdrop, irAInicio, mensaje, tabDestino){
