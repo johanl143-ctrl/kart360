@@ -2503,16 +2503,19 @@ function pillEstadoCuotaHoy(cuota, esSemanal){
 }
 
 function filaCobro(cliente, prestamo, cuota, esPendiente, montoPagadoHoy){
+  const finalizado = esPendiente===false && prestamoFinalizado(prestamo);
   const row = document.createElement('div');
-  row.className = 'list-row' + (esPendiente===false ? ' dimmed' : '');
+  // Un crédito que se termina de pagar no se atenúa: se destaca para que se note
+  row.className = 'list-row' + (esPendiente===false && !finalizado ? ' dimmed' : '');
   row.onclick = ()=> abrirDetallePrestamo(prestamo.id);
   const color = colorCliente(cliente.id);
   const esSemanal = prestamo.frecuencia === 'semanal';
-  const [pillClass, pillText] = pillEstadoCuotaHoy(cuota, esSemanal);
+  let [pillClass, pillText] = pillEstadoCuotaHoy(cuota, esSemanal);
+  if(finalizado){ pillClass = 'pill-ok'; pillText = '🏁 FINALIZÓ'; }
   const montoMostrado = (montoPagadoHoy!=null) ? montoPagadoHoy : prestamo.cuotaDiaria;
   row.innerHTML = `
-    <div class="info"><div class="name">${escapeHtml(cliente.nombre)} ${esSemanal ? '<span title="Crédito semanal" style="font-size:12px; font-weight:600; color:var(--teal); background:var(--teal-tint); padding:1px 6px; border-radius:6px; margin-left:4px;">🗓️ Sem</span>' : ''}</div><div class="meta num">${fmt(montoMostrado)} · cuota ${cuota.n}/${prestamo.nCuotas}</div></div>
-    <span class="pill ${pillClass}">${pillText}</span>`;
+    <div class="info"><div class="name">${escapeHtml(cliente.nombre)} ${esSemanal ? '<span title="Crédito semanal" style="font-size:12px; font-weight:600; color:var(--teal); background:var(--teal-tint); padding:1px 6px; border-radius:6px; margin-left:4px;">🗓️ Sem</span>' : ''}</div><div class="meta num">${fmt(montoMostrado)} · ${finalizado ? 'crédito completo' : 'cuota '+cuota.n+'/'+prestamo.nCuotas}</div></div>
+    <span class="pill ${pillClass}"${finalizado ? ' style="font-weight:700;"' : ''}>${pillText}</span>`;
   return row;
 }
 
