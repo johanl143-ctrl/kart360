@@ -3620,9 +3620,10 @@ function renderCaja(){
 function renderMovimientos(){
   const boxMov = document.getElementById('listaMovimientos');
   boxMov.innerHTML = '';
-  const movs = state.movimientos.filter(esMiMovimiento).slice().sort((a,b)=> b.fecha.localeCompare(a.fecha));
+  const hoy = todayISO();
+  const movs = state.movimientos.filter(m=> esMiMovimiento(m) && m.fecha===hoy);
   if(movs.length===0){
-    boxMov.innerHTML = '<div class="empty-state" style="padding:20px 0;">Sin movimientos registrados todavía.</div>';
+    boxMov.innerHTML = '<div class="empty-state" style="padding:20px 0;">Sin movimientos registrados hoy.</div>';
   } else {
     movs.forEach(m=>{
       const row = document.createElement('div'); row.className='mov-row';
