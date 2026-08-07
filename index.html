@@ -2973,7 +2973,10 @@ function renderHistorialEnContenedor(clienteId, containerId){
     const esNoPago = f.resuelta && f.cuotas.length===1 && f.cuotas[0].estado==='no-pago';
     let pillClass, pillText, montoMostrado, numsTxt, sinPagar;
     if(!f.resuelta){
-      pillClass='pill-late'; pillText='Atrasada'; montoMostrado = 0;
+      const esHoy = f.fecha === hoy;
+      pillClass = esHoy ? 'pill-warn' : 'pill-late';
+      pillText = esHoy ? '📢 Cuota de hoy' : 'Atrasada';
+      montoMostrado = 0;
       numsTxt = 'Sin pagar'; sinPagar = true;
     } else if(esNoPago){
       pillClass='pill-late'; pillText='No pagó'; montoMostrado = 0;
@@ -3821,9 +3824,22 @@ async function guardarMovimiento(){
       toast('⚠️ No se guardó el cambio en la base — revisá tu conexión');
     }
   } else {
+    // Si es el administrador, el movimiento se asigna a la ruta que tiene seleccionada arriba.
+    // Si está en "todas las rutas juntas" no hay ruta a la cual asignarlo — eso es justamente
+    // lo que después descuadra "todas las rutas" contra la suma de las rutas individuales,
+    // así que se le pide elegir una ruta primero en vez de dejarlo sin asignar.
+    if(state.usuarioRol === 'administrador' && !state.vendedorVistaAdmin){
+      toast('⚠️ Elegí primero una ruta arriba (no "todas las rutas juntas") para saber a quién asignarle este movimiento');
+      return;
+    }
     try{
       const { data: userData } = await supabaseClient.auth.getUser();
-      const vendedorId = state.usuarioRol==='cobrador' && userData && userData.user ? userData.user.id : null;
+      let vendedorId = null;
+      if(state.usuarioRol === 'cobrador'){
+        vendedorId = userData && userData.user ? userData.user.id : null;
+      } else if(state.usuarioRol === 'administrador'){
+        vendedorId = state.vendedorVistaAdmin;
+      }
       const { data, error } = await supabaseClient.from('movimientos')
         .insert({ tipo: state.tipoMovNuevo, concepto, monto, fecha: todayISO(), vendedor_id: vendedorId })
         .select().single();
