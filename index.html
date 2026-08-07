@@ -190,7 +190,7 @@
   .cuota-chip.abono{ background: linear-gradient(135deg, var(--green) 50%, var(--card) 50%); border-color:var(--green); color:var(--ink); }
   .cuota-chip.no-pago{ background:var(--brick); border-color:var(--brick); color:#fff; }
   .cuota-chip.vencida{ border-color:var(--brick); color:var(--brick); background:var(--brick-tint); }
-  .cuota-chip.hoy{ }
+  .cuota-chip.hoy{ border-color:var(--gold); box-shadow:0 0 0 1.5px var(--gold-tint); }
   .cuota-chip.seleccionada{ box-shadow: 0 0 0 2px var(--teal); background: var(--teal-tint); border-color: var(--teal); }
   .cuota-chip.no-seleccionable{ opacity:0.4; cursor:not-allowed; }
   .legend{ display:flex; gap:12px; flex-wrap:wrap; margin-top:12px; font-size:11px; color:var(--muted); }
@@ -1477,6 +1477,7 @@ function manejarCambioRealtime(payload){
     else if(pantalla === 'caja') renderCaja();
     else if(pantalla === 'movimientos') renderMovimientos();
     else if(pantalla === 'reportes') abrirReportes();
+    else if(pantalla === 'panel-admin') renderPanelAdmin();
     else if(pantalla === 'ficha' && clienteAntes) abrirFicha(clienteAntes);
     else if(pantalla === 'detalle-prestamo' && prestamoAntes) abrirDetallePrestamo(prestamoAntes, state.abiertoDesdeCobrados);
   }, 700);
@@ -1866,7 +1867,8 @@ function renderPanelAdmin(){
         <div class="kv-row"><span class="k">🛒 Ventas</span><span class="v num">${fmt(d.ventas)}</span></div>
         <div class="kv-row"><span class="k">📥 Recaudo</span><span class="v num">${fmt(d.recaudo)}</span></div>
         <div class="kv-row"><span class="k">🏦 Saldo en caja</span><span class="v num">${fmt(d.saldoEnCaja)}</span></div>
-      </div>`;
+      </div>
+      <button class="btn btn-secondary" style="margin-top:10px;" onclick="abrirFiltroPorFechas('${vendedorActivoPanel}')">🗓️ Ver un día anterior / rango</button>`;
     cargarEstadoRutaHoy(vendedorActivoPanel);
   } else if(tabPanelActiva==='mensuales'){
     const d = calcularMensualVendedor(vendedorActivoPanel);
@@ -2046,11 +2048,65 @@ function abrirFiltroPorFechas(vendedorId){
         <div class="kv-row"><span class="k">📊 Cartera final</span><span class="v num">${fmt(d.carteraFinal)}</span></div>
         <div class="kv-row"><span class="k">📅 Días trabajados</span><span class="v">${d.diasTrabajados}</span></div>
       </div>
-      <button class="btn btn-secondary" style="margin-top:10px;" id="btnDescargarFiltroFechas">📄 Descargar PDF de este período</button>`;
+      <button class="btn btn-secondary" style="margin-top:10px;" id="btnDetalleGananciaFechas">🔎 Ver detalle por cliente (de dónde salió cada peso)</button>
+      <button class="btn btn-secondary" style="margin-top:8px;" id="btnDescargarFiltroFechas">📄 Descargar PDF de este período</button>`;
+    cont.querySelector('#btnDetalleGananciaFechas').onclick = ()=>{
+      abrirDetalleGananciaPorCliente(vendedorId, v ? v.nombre : 'cobrador', desde, hasta);
+    };
     cont.querySelector('#btnDescargarFiltroFechas').onclick = ()=>{
       generarPdfReportePorRango(vendedorId, v ? v.nombre : 'cobrador', d, desde, hasta);
     };
   };
+}
+
+/* =========================================================
+   DETALLE DE GANANCIA POR CLIENTE — para rastrear de dónde
+   salió un monto de ganancia/recaudo en un día o período.
+   ========================================================= */
+function calcularDetalleGananciaPorCliente(vendedorId, desde, hasta){
+  const prestamosV = prestamosDeVendedor(vendedorId);
+  const porCliente = {}; // clienteId -> {recaudo, ganancia, capital}
+  prestamosV.forEach(p=>{
+    p.cuotas.forEach(cu=>{
+      if(cu.fechaPago && cu.fechaPago>=desde && cu.fechaPago<=hasta && (cu.montoPagado||0)>0){
+        porCliente[p.clienteId] = porCliente[p.clienteId] || { recaudo:0, ganancia:0, capital:0 };
+        const monto = cu.montoPagado||0;
+        const ganancia = interesRecuperadoDePago(p, monto);
+        porCliente[p.clienteId].recaudo += monto;
+        porCliente[p.clienteId].ganancia += ganancia;
+        porCliente[p.clienteId].capital += (monto - ganancia);
+      }
+    });
+  });
+  return Object.entries(porCliente).map(([clienteId, v])=>{
+    const cliente = state.clientes.find(c=>c.id===clienteId);
+    return { clienteId, nombre: cliente ? cliente.nombre : 'Cliente eliminado', recaudo: Math.round(v.recaudo), ganancia: Math.round(v.ganancia), capital: Math.round(v.capital) };
+  }).sort((a,b)=> b.ganancia - a.ganancia);
+}
+
+function abrirDetalleGananciaPorCliente(vendedorId, nombreVendedor, desde, hasta){
+  const detalle = calcularDetalleGananciaPorCliente(vendedorId, desde, hasta);
+  const totalGanancia = detalle.reduce((a,d)=>a+d.ganancia, 0);
+  const totalRecaudo = detalle.reduce((a,d)=>a+d.recaudo, 0);
+  const backdrop = document.createElement('div');
+  backdrop.className = 'modal-backdrop';
+  backdrop.onclick = (e)=>{ if(e.target===backdrop) backdrop.remove(); };
+  const filas = detalle.length===0
+    ? '<div class="empty-state" style="padding:20px 0;">No hubo cobros registrados en este período.</div>'
+    : detalle.map(d=>`
+        <div class="list-row" style="cursor:default;">
+          <div class="info"><div class="name">${escapeHtml(d.nombre)}</div><div class="meta num">Cobrado: ${fmt(d.recaudo)} · Capital recuperado: ${fmt(d.capital)}</div></div>
+          <span class="num" style="font-weight:700; color:var(--teal);">${fmt(d.ganancia)}</span>
+        </div>`).join('');
+  backdrop.innerHTML = `
+    <div class="modal-sheet">
+      <h3>💰 Detalle de ganancia por cliente</h3>
+      <div class="sub">${nombreVendedor} · ${fechaConDia(desde)}${desde!==hasta ? ' al ' + fechaConDia(hasta) : ''}<br>
+        Ganancia total del período: <b>${fmt(totalGanancia)}</b> · Recaudo total: <b>${fmt(totalRecaudo)}</b></div>
+      <div class="card scroll-fino" style="max-height:55vh; overflow-y:auto; padding:0 16px;">${filas}</div>
+      <button class="btn btn-secondary" style="margin-top:14px;" onclick="this.closest('.modal-backdrop').remove();">Cerrar</button>
+    </div>`;
+  document.getElementById('app').appendChild(backdrop);
 }
 
 async function generarPdfReportePorRango(vendedorId, nombreVendedor, d, desde, hasta){
@@ -2514,8 +2570,8 @@ function pillEstadoCuotaHoy(cuota, esSemanal){
   if(cuota.estado==='abono') return ['pill-warn','Abono'];
   if(cuota.estado==='no-pago') return ['pill-late','No pagó'];
   if(cuota.fecha > todayISO()) return ['pill-ok','Adelantado'];
-  if(esSemanal && cuota.fecha === todayISO()) return ['pill-warn','📢 Cobrar hoy'];
-  return ['pill-neutral','Pendiente'];
+  if(cuota.fecha === todayISO()) return ['pill-warn','📢 Cuota de hoy'];
+  return ['pill-late','Atrasada'];
 }
 
 function filaCobro(cliente, prestamo, cuota, esPendiente, montoPagadoHoy){
@@ -3074,37 +3130,76 @@ async function guardarPrestamo(){
   if(state.editandoPrestamoId){
     const p = state.prestamos.find(pp=>pp.id===state.editandoPrestamoId);
     const totalPagar = valor + valor*interes/100;
-    const cuotaDiaria = Math.floor(totalPagar/cuotas);
     const diasEntreCuotas = frecuenciaNP === 'semanal' ? 7 : 1;
+
+    // REGLA FIJA: una cuota con pago o abono ya registrado (estado !== 'pendiente')
+    // NUNCA pierde ni modifica su monto pagado, fecha de pago, estado o lote —
+    // pase lo que pase con la cantidad de cuotas, el valor, el interés o la frecuencia
+    // que se editen después. Lo único que se le puede recalcular es la fecha de
+    // vencimiento (la fecha "teórica" de la cuota, no la fecha en que se cobró).
+    // Si la cantidad de cuotas con historial supera a la cantidad nueva ingresada,
+    // se respeta el historial y el total de cuotas queda en al menos esa cantidad.
+    const totalOriginal = p.cuotas.length;
+    const limiteFinal = Math.max(cuotas, totalOriginal);
     const cuotasNuevas = [];
-    for(let i=0;i<cuotas;i++){
+    let seAjustoCantidad = false;
+    for(let i=0;i<limiteFinal;i++){
       const previa = p.cuotas[i];
-      if(previa && previa.estado!=='pendiente'){
-        cuotasNuevas.push({ ...previa, fecha: addDays(fecha, i*diasEntreCuotas) });
+      const esHistorica = !!previa && previa.estado !== 'pendiente';
+      if(i >= cuotas && !esHistorica){
+        continue; // cuota futura (pendiente) que quedó fuera del rango nuevo: se descarta, sin problema
+      }
+      if(esHistorica){
+        if(i >= cuotas) seAjustoCantidad = true;
+        // Se preserva TAL CUAL: id, estado, montoPagado, fechaPago, loteId. Solo se recalcula la fecha de vencimiento.
+        cuotasNuevas.push({ ...previa, n: i+1, fecha: addDays(fecha, i*diasEntreCuotas) });
       } else {
-        cuotasNuevas.push({ n:i+1, fecha: addDays(fecha, i*diasEntreCuotas), estado:'pendiente', montoPagado:0, fechaPago:null, loteId:null });
+        cuotasNuevas.push({ n: i+1, fecha: addDays(fecha, i*diasEntreCuotas), estado:'pendiente', montoPagado:0, fechaPago:null, loteId:null });
       }
     }
-      try{
+    const nCuotasFinal = cuotasNuevas.length;
+    const cuotaDiaria = Math.floor(totalPagar/nCuotasFinal);
+
+    try{
       await supabaseClient.from('prestamos').update({
-        valor, interes, n_cuotas: cuotas, cuota_diaria: cuotaDiaria, fecha_inicio: fecha, frecuencia: frecuenciaNP
+        valor, interes, n_cuotas: nCuotasFinal, cuota_diaria: cuotaDiaria, fecha_inicio: fecha, frecuencia: frecuenciaNP
       }).eq('id', p.id);
 
-      await supabaseClient.from('cuotas').delete().eq('prestamo_id', p.id);
-      const filas = cuotasNuevas.map(cu => ({
+      // Cuotas con historial (ya pagadas/abonadas/no-pago): solo se actualiza la fecha de vencimiento,
+      // por id — nunca se borran ni se tocan monto_pagado / fecha_pago / estado.
+      const historicas = cuotasNuevas.filter(cu => cu.id);
+      await Promise.all(historicas.map(cu =>
+        supabaseClient.from('cuotas').update({ n: cu.n, fecha: cu.fecha }).eq('id', cu.id)
+      ));
+
+      // Cuotas pendientes: se borran solo las pendientes viejas y se insertan las pendientes nuevas
+      // (a las históricas ni se les toca la fila, así que no corren riesgo).
+      await supabaseClient.from('cuotas').delete().eq('prestamo_id', p.id).eq('estado', 'pendiente');
+
+      const pendientesNuevas = cuotasNuevas.filter(cu => !cu.id);
+      const filas = pendientesNuevas.map(cu => ({
         prestamo_id: p.id, n: cu.n, fecha: cu.fecha, estado: cu.estado,
-        monto_pagado: cu.montoPagado || 0, fecha_pago: cu.fechaPago, lote_id: cu.loteId
+        monto_pagado: 0, fecha_pago: null, lote_id: null
       }));
-      const { data: cuotasDB, error } = await supabaseClient.from('cuotas').insert(filas).select();
+      const { data: pendientesDB, error } = filas.length
+        ? await supabaseClient.from('cuotas').insert(filas).select()
+        : { data: [], error: null };
       if(error) throw error;
 
-      p.valor = valor; p.interes = interes; p.nCuotas = cuotas; p.cuotaDiaria = cuotaDiaria;
+      const cuotasFinalLocal = [
+        ...historicas,
+        ...pendientesDB.map(cu => ({
+          id: cu.id, n: cu.n, fecha: cu.fecha, estado: cu.estado,
+          montoPagado: Number(cu.monto_pagado)||0, fechaPago: cu.fecha_pago, loteId: cu.lote_id
+        }))
+      ].sort((a,b)=>a.n-b.n);
+
+      p.valor = valor; p.interes = interes; p.nCuotas = nCuotasFinal; p.cuotaDiaria = cuotaDiaria;
       p.fechaInicio = fecha; p.totalPagar = totalPagar; p.frecuencia = frecuenciaNP;
-      p.cuotas = cuotasDB.slice().sort((a,b)=>a.n-b.n).map(cu=>({
-        id: cu.id, n: cu.n, fecha: cu.fecha, estado: cu.estado,
-        montoPagado: Number(cu.monto_pagado)||0, fechaPago: cu.fecha_pago, loteId: cu.lote_id
-      }));
-      toast('Crédito actualizado');
+      p.cuotas = cuotasFinalLocal;
+      toast(seAjustoCantidad
+        ? `Crédito actualizado — se mantuvo en ${nCuotasFinal} cuotas porque ya había pagos registrados más allá de las ${cuotas} ingresadas`
+        : 'Crédito actualizado');
       state.editandoPrestamoId = null;
       abrirFicha(state.clienteActivoId);
     } catch(e){
@@ -3464,15 +3559,19 @@ function renderCuotaGrid(p){
     let cls = esAbonoCero ? 'pendiente' : cu.estado;
     if(cls==='pendiente' && cuotaEstaAtrasada(cu,hoy)) cls = 'vencida';
     chip.className = 'cuota-chip ' + cls;
-    if(cu.fecha===hoy) chip.classList.add('hoy');
-    const montoTxt = (cu.montoPagado>0) ? `<div class="monto">${Math.round(cu.montoPagado).toLocaleString('es-UY')}</div>` : '';
+    const esHoySinPagar = cu.fecha===hoy && cls==='pendiente';
+    if(esHoySinPagar) chip.classList.add('hoy');
+    const montoTxt = (cu.montoPagado>0)
+      ? `<div class="monto">${Math.round(cu.montoPagado).toLocaleString('es-UY')}</div>`
+      : (esHoySinPagar ? `<div class="monto" style="color:var(--gold); font-weight:700;">HOY</div>` : '');
     chip.innerHTML = `<div class="n">${cu.n}</div>${montoTxt}`;
-    chip.title = `Cuota ${cu.n} — ${cu.fecha}` + (cu.montoPagado>0 ? ` — ${cu.estado==='abono'?'Abonado':'Pagado'}: ${fmt(cu.montoPagado)}` : '');
+    chip.title = `Cuota ${cu.n} — ${cu.fecha}` + (esHoySinPagar ? ' — Cuota de hoy (sin pagar)' : '') + (cu.montoPagado>0 ? ` — ${cu.estado==='abono'?'Abonado':'Pagado'}: ${fmt(cu.montoPagado)}` : '');
 
     chip.onclick = ()=>{
       const estadoTxt = cu.estado==='pagada' ? 'Pagada'
         : cu.estado==='abono' ? ((cu.montoPagado||0)>0 ? 'Abono parcial' : 'Sin pagar')
         : cu.estado==='no-pago' ? 'No pagó'
+        : esHoySinPagar ? 'Cuota de hoy'
         : (cuotaEstaAtrasada(cu,hoy) ? 'Atrasada' : 'Pendiente');
       const montoInfo = (cu.montoPagado||0)>0 ? ` · ${fmt(cu.montoPagado)}` : '';
       toast(`Cuota ${cu.n} de ${p.nCuotas} · ${fechaConDia(cu.fecha)} · ${estadoTxt}${montoInfo}`);
@@ -3695,6 +3794,18 @@ async function guardarMovimiento(){
   const monto = parseFloat(document.getElementById('movMonto').value) || 0;
   if(!concepto){ toast('El concepto es obligatorio — describí de qué se trata este movimiento'); return; }
   if(monto<=0){ toast('Ingresá un monto mayor a $0'); return; }
+
+  if(!state.editandoMovId){
+    // Aviso de seguridad: si ya existe hoy un movimiento igual (mismo tipo, concepto y monto),
+    // probablemente sea porque no se vio reflejado el anterior a tiempo — se pregunta antes de duplicar.
+    const yaExisteIgual = state.movimientos.some(m =>
+      m.fecha===todayISO() && m.tipo===state.tipoMovNuevo &&
+      m.concepto.trim().toLowerCase()===concepto.toLowerCase() && Number(m.monto)===monto
+    );
+    if(yaExisteIgual && !confirm('Ya hay un movimiento igual cargado hoy (mismo tipo, concepto y monto). ¿Seguro que querés registrarlo de nuevo?')){
+      return;
+    }
+  }
 
   if(state.editandoMovId){
     const m = state.movimientos.find(mv=>mv.id===state.editandoMovId);
