@@ -489,7 +489,7 @@
 
       <div class="section-title">Ficha de cuotas</div>
       <div class="cuota-grid" id="cuotaGrid"></div>
-      <button class="btn btn-secondary hidden" style="margin-top:14px;" onclick="deshacerPagosDeHoyFicha()" id="btnDeshacerHoy">↺ Deshacer lo registrado hoy</button>
+      <button class="btn btn-danger hidden" style="margin-top:14px;" onclick="deshacerPagosDeHoyFicha()" id="btnDeshacerHoy">🗑️ BORRAR ÚLTIMO REGISTRO</button>
     </div>
 
     <div id="panelAccionesCuota">
@@ -3254,8 +3254,9 @@ async function accionPagoFicha(tipo){
     }
     await sincronizarCambiosCuotas(p, antes);
     if(tipo==='pagada' && cliente && cliente.telefono) preguntarEnviarComprobante(cliente, p, accionable);
-    abrirDetallePrestamo(p.id, state.abiertoDesdeCobrados);
     toast(mensaje);
+    nav('inicio');
+    setTabInicio('cobrados');
   } catch(e){
     console.error('No se pudo registrar el pago', e);
     toast('⚠️ No se pudo registrar — revisá tu conexión');
@@ -3301,8 +3302,9 @@ async function confirmarAbonoFicha(){
     }
     await sincronizarCambiosCuotas(p, antes);
     if(val > 0 && cliente && cliente.telefono) preguntarEnviarComprobante(cliente, p, accionable);
-    abrirDetallePrestamo(p.id, state.abiertoDesdeCobrados);
     toast(mensaje);
+    nav('inicio');
+    setTabInicio('cobrados');
   } catch(e){
     console.error('No se pudo registrar el abono', e);
     toast('⚠️ No se pudo registrar — revisá tu conexión');
@@ -3315,18 +3317,18 @@ async function deshacerPagosDeHoyFicha(){
   if(!p) return;
   const hoy = todayISO();
   const afectadas = p.cuotas.filter(cu=>cu.fechaPago===hoy);
-  if(afectadas.length===0){ toast('No hay nada registrado hoy en este crédito'); return; }
-  if(!confirm(`¿Deshacer lo registrado hoy en este crédito? Se liberan ${afectadas.length} cuota${afectadas.length===1?'':'s'}.`)) return;
+  if(afectadas.length===0){ toast('No hay ningún registro de hoy en este crédito'); return; }
+  if(!confirm(`¿Borrar el último registro de hoy en este crédito? Se liberan ${afectadas.length} cuota${afectadas.length===1?'':'s'}.`)) return;
   const antes = snapshotCuotas(p);
   afectadas.forEach(cu=>{ cu.estado='pendiente'; cu.montoPagado=0; cu.fechaPago=null; cu.loteId=null; });
   try{
     await sincronizarCambiosCuotas(p, antes);
-    toast('Se deshizo lo registrado hoy');
+    toast('Último registro borrado');
     nav('inicio');
     setTabInicio('pendientes');
   } catch(e){
     console.error('No se pudo deshacer', e);
-    toast('⚠️ No se pudo deshacer — revisá tu conexión');
+    toast('⚠️ No se pudo borrar — revisá tu conexión');
     abrirDetallePrestamo(p.id, state.abiertoDesdeCobrados);
   }
 }
