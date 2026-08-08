@@ -3716,7 +3716,8 @@ function abrirModalCuota(prestamoId, idx, esPagoAdelantado){
   backdrop.innerHTML = `
     <div class="modal-sheet">
       <h3 style="font-size:19px; margin-bottom:2px;">Cuota ${cu.n} de ${p.nCuotas}</h3>
-      <div class="num" style="font-size:30px; font-weight:700; color:var(--teal); text-align:center; line-height:1.2; margin:6px 0 2px 0;">${fmt(montoEsperadoCuota(p,cu))}</div>
+      <div class="sub" style="font-size:12px; text-align:center; margin:6px 0 0 0;">valor cuota</div>
+      <div class="num" style="font-size:30px; font-weight:700; color:var(--teal); text-align:center; line-height:1.2; margin:0 0 2px 0;">${fmt(montoEsperadoCuota(p,cu))}</div>
       <div class="sub" style="font-size:13.5px; margin-bottom:4px;">Vence el ${fechaConDia(cu.fecha)}${cu.fechaPago ? ' · Gestionada el '+cu.fechaPago : ''}</div>
 
       ${bloqueadaPorOrden ? `
@@ -3734,7 +3735,7 @@ function abrirModalCuota(prestamoId, idx, esPagoAdelantado){
           <button class="btn btn-gold" id="btnAbono">🟡 Abono</button>
         </div>
         <div class="field" id="abonoField" style="margin-top:14px; display:none;">
-          <label>Monto del abono</label>
+          <label>Monto del abono <span style="font-weight:400; font-size:12px; color:var(--ink-soft);">(valor cuota ${fmt(montoEsperadoCuota(p,cu))})</span></label>
           <input type="number" id="montoAbono">
           <span class="kv-sub" style="margin-top:6px;">Si alcanza para más, el sobrante se aplica solo a las próximas cuotas pendientes (empezando por la más vieja).</span>
         </div>
@@ -3752,7 +3753,7 @@ function abrirModalCuota(prestamoId, idx, esPagoAdelantado){
           <button class="btn btn-danger" id="btnNoPago">❌ No pagó</button>
         </div>
         <div class="field" id="abonoField" style="margin-top:14px; display:none;">
-          <label>Monto del abono</label>
+          <label>Monto del abono <span style="font-weight:400; font-size:12px; color:var(--ink-soft);">(valor cuota ${fmt(montoEsperadoCuota(p,cu))})</span></label>
           <input type="number" id="montoAbono">
           <span class="kv-sub" style="margin-top:6px;">Si alcanza para más, el sobrante se aplica solo a las próximas cuotas pendientes (empezando por la más vieja).</span>
         </div>
