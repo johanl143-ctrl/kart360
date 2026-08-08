@@ -3390,10 +3390,13 @@ async function accionPagoFicha(tipo){
       mensaje = 'Cliente marcado como no pagó';
     }
     await sincronizarCambiosCuotas(p, antes);
-    if(tipo==='pagada' && cliente && cliente.telefono) preguntarEnviarComprobante(cliente, p, accionable);
     toast(mensaje);
-    nav('inicio');
-    setTabInicio('cobrados');
+    const avanzar = ()=>{ nav('inicio'); setTabInicio('cobrados'); };
+    if(tipo==='pagada' && cliente && cliente.telefono){
+      preguntarEnviarComprobante(cliente, p, accionable, avanzar);
+    } else {
+      avanzar();
+    }
   } catch(e){
     console.error('No se pudo registrar el pago', e);
     toast('⚠️ No se pudo registrar — revisá tu conexión');
@@ -3438,10 +3441,13 @@ async function confirmarAbonoFicha(){
       mensaje = mensajeDistribucion(distribuirPago(p, val));
     }
     await sincronizarCambiosCuotas(p, antes);
-    if(val > 0 && cliente && cliente.telefono) preguntarEnviarComprobante(cliente, p, accionable);
     toast(mensaje);
-    nav('inicio');
-    setTabInicio('cobrados');
+    const avanzar = ()=>{ nav('inicio'); setTabInicio('cobrados'); };
+    if(val > 0 && cliente && cliente.telefono){
+      preguntarEnviarComprobante(cliente, p, accionable, avanzar);
+    } else {
+      avanzar();
+    }
   } catch(e){
     console.error('No se pudo registrar el abono', e);
     toast('⚠️ No se pudo registrar — revisá tu conexión');
@@ -3666,8 +3672,8 @@ function montoPagadoHoyPorPrestamo(prestamo){
   return montoPagadoEnFecha(prestamo, todayISO());
 }
 
-function preguntarEnviarComprobante(cliente, prestamo, cuota){
-  if(!cliente.telefono) return;
+function preguntarEnviarComprobante(cliente, prestamo, cuota, alCerrar){
+  if(!cliente.telefono){ if(alCerrar) alCerrar(); return; }
   const bar = document.createElement('div');
   bar.style.cssText = 'position:fixed; bottom:78px; left:50%; transform:translateX(-50%); background:#fff; border:1px solid var(--line); border-radius:16px; box-shadow:0 10px 30px rgba(0,0,0,0.22); padding:14px 16px; display:flex; flex-direction:column; gap:10px; align-items:stretch; z-index:60; width:88%; max-width:340px;';
   bar.innerHTML = `
@@ -3676,7 +3682,13 @@ function preguntarEnviarComprobante(cliente, prestamo, cuota){
     <button id="btnEnviarDespuesMini" style="font-size:13px; padding:9px 10px; border-radius:10px; border:1px solid var(--line); background:#fff; color:var(--ink-soft); cursor:pointer;">Después</button>
   `;
   document.body.appendChild(bar);
-  const cerrar = ()=>{ if(bar.parentNode) bar.remove(); };
+  let cerrado = false;
+  const cerrar = ()=>{
+    if(cerrado) return;
+    cerrado = true;
+    if(bar.parentNode) bar.remove();
+    if(alCerrar) alCerrar();
+  };
   bar.querySelector('#btnEnviarAhoraMini').onclick = ()=>{ enviarComprobanteWhatsapp(cliente, prestamo, cuota); cerrar(); };
   bar.querySelector('#btnEnviarDespuesMini').onclick = cerrar;
   setTimeout(cerrar, 9000);
@@ -3769,8 +3781,15 @@ function abrirModalCuota(prestamoId, idx, esPagoAdelantado){
         this.disabled = true; this.textContent = 'Guardando...';
         marcarPagoInterno(cu,'pagada',montoEsperadoCuota(p,cu),todayISO());
         await sincronizarCuota(cu);
-        if(cliente.telefono) preguntarEnviarComprobante(cliente, p, cu);
-        finCambioCuota(p, backdrop, true, 'Cobro registrado', 'cobrados');
+        backdrop.remove();
+        renderCuotaGrid(p);
+        toast('Cobro registrado');
+        const avanzar = ()=>{ nav('inicio'); setTabInicio('cobrados'); };
+        if(cliente.telefono){
+          preguntarEnviarComprobante(cliente, p, cu, avanzar);
+        } else {
+          avanzar();
+        }
       };
     }
     if(backdrop.querySelector('#btnNoPago')){
@@ -3807,12 +3826,15 @@ function abrirModalCuota(prestamoId, idx, esPagoAdelantado){
           return antes.estado!==c2.estado || antes.montoPagado!==c2.montoPagado;
         });
         await Promise.all(cuotasASincronizar.map(c2=>sincronizarCuota(c2)));
-        if(cliente.telefono) preguntarEnviarComprobante(cliente, p, cu);
         backdrop.remove();
         renderCuotaGrid(p);
         toast(resultado.esCero ? '⚠️ Abono registrado en $0 — no se descontó nada del saldo' : mensajeDistribucion(resultado));
-        nav('inicio');
-        setTabInicio('cobrados');
+        const avanzar = ()=>{ nav('inicio'); setTabInicio('cobrados'); };
+        if(cliente.telefono){
+          preguntarEnviarComprobante(cliente, p, cu, avanzar);
+        } else {
+          avanzar();
+        }
       }
     };
   } else if(yaRegistrada && !bloqueadaPorTiempo){
