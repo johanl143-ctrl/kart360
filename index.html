@@ -1914,7 +1914,8 @@ function renderPanelAdmin(){
           ${construirCalendarioDiasTrabajados(d.fechasTrabajadas)}
         </div>
       </div>
-      <button class="btn btn-secondary" style="margin-top:8px;" onclick="abrirFiltroPorFechas('${vendedorActivoPanel}')">🗓️ Filtrar por fechas</button>`;
+      <button class="btn btn-secondary" style="margin-top:8px;" onclick="abrirFiltroPorFechas('${vendedorActivoPanel}')">🗓️ Filtrar por fechas</button>
+      <button class="btn btn-secondary" style="margin-top:8px;" onclick="generarPdfMovimientosMes('${vendedorActivoPanel}', '${(cobradoresDelPanel.find(v=>v.id===vendedorActivoPanel)||{}).nombre || 'cobrador'}')">📄 Descargar informe de movimientos de caja</button>`;
   } else if(tabPanelActiva==='clientes'){
     const clientes = clientesDe(vendedorActivoPanel);
     if(clientes.length===0){
@@ -2171,6 +2172,72 @@ async function generarPdfReportePorRango(vendedorId, nombreVendedor, d, desde, h
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url; a.download = `reporte_${desde}_a_${hasta}_${nombreVendedor.toLowerCase()}.pdf`;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  toast('PDF descargado');
+}
+
+async function generarPdfMovimientosMes(vendedorId, nombreVendedor){
+  if(typeof PDFLib === 'undefined'){ toast('No se pudo cargar el generador de PDF'); return; }
+  const hoy = todayISO();
+  const movs = state.movimientos
+    .filter(m=> m.vendedorId===vendedorId && esMismoMes(m.fecha, hoy))
+    .slice()
+    .sort((a,b)=> a.fecha===b.fecha ? 0 : (a.fecha<b.fecha?-1:1));
+
+  const { PDFDocument, StandardFonts, rgb } = PDFLib;
+  const doc = await PDFDocument.create();
+  const font = await doc.embedFont(StandardFonts.Helvetica);
+  const fontBold = await doc.embedFont(StandardFonts.HelveticaBold);
+  let page = doc.addPage([595,842]);
+  const marginX = 50; let y = 792;
+  function texto(str, x, size, bold, color){
+    page.drawText(String(str), { x, y, size: size||10, font: bold?fontBold:font, color: color||rgb(0.11,0.14,0.19) });
+  }
+  function nuevaPaginaSiHaceFalta(){
+    if(y < 60){ page = doc.addPage([595,842]); y = 792; }
+  }
+
+  const nombreMes = nombreDelMes(hoy.slice(0,7));
+  texto('Kart360 — Movimientos de caja (ingresos y egresos)', marginX, 16, true); y-=22;
+  texto(`Cobrador: ${nombreVendedor}`, marginX, 12); y-=18;
+  texto(`Mes: ${nombreMes}`, marginX, 12); y-=30;
+
+  // Encabezado de la tabla
+  texto('Fecha', marginX, 10.5, true);
+  texto('Tipo', marginX+90, 10.5, true);
+  texto('Concepto', marginX+150, 10.5, true);
+  texto('Monto', 480, 10.5, true);
+  y -= 8;
+  page.drawLine({ start:{x:marginX,y}, end:{x:545,y}, thickness:0.7, color:rgb(0.7,0.7,0.7) }); y -= 16;
+
+  let totalIngresos = 0, totalEgresos = 0;
+  if(movs.length===0){
+    texto('No hay movimientos registrados este mes.', marginX, 10.5); y -= 20;
+  }
+  movs.forEach(m=>{
+    nuevaPaginaSiHaceFalta();
+    const esIngreso = m.tipo==='ingreso';
+    if(esIngreso) totalIngresos += m.monto; else totalEgresos += m.monto;
+    const colorMonto = esIngreso ? rgb(0.1,0.45,0.35) : rgb(0.65,0.2,0.15);
+    texto(fechaConDia(m.fecha), marginX, 9.5);
+    texto(esIngreso ? 'Ingreso' : 'Egreso', marginX+90, 9.5);
+    texto((m.concepto||'').slice(0,38), marginX+150, 9.5);
+    texto((esIngreso?'+':'-') + fmt(m.monto), 470, 9.5, true, colorMonto);
+    y -= 15;
+  });
+
+  nuevaPaginaSiHaceFalta();
+  y -= 10;
+  page.drawLine({ start:{x:marginX,y}, end:{x:545,y}, thickness:0.7, color:rgb(0.7,0.7,0.7) }); y -= 20;
+  texto('Total ingresos', marginX, 11, true); texto(fmt(totalIngresos), 470, 11, true, rgb(0.1,0.45,0.35)); y -= 20;
+  texto('Total egresos', marginX, 11, true); texto(fmt(totalEgresos), 470, 11, true, rgb(0.65,0.2,0.15)); y -= 20;
+  texto('Saldo neto (ingresos - egresos)', marginX, 11, true); texto(fmt(totalIngresos-totalEgresos), 470, 11, true); y -= 20;
+
+  const bytes = await doc.save();
+  const blob = new Blob([bytes], {type:'application/pdf'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `movimientos_caja_${nombreMes.replace(' ','_').toLowerCase()}_${nombreVendedor.toLowerCase()}.pdf`;
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   toast('PDF descargado');
 }
