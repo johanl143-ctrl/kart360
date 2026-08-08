@@ -2867,11 +2867,6 @@ function abrirFicha(clienteId){
 
   const ps = prestamosDe(clienteId);
   const actual = creditoActualDe(clienteId);
-  // Cliente "renovado": ya tiene más de un crédito registrado (el actual salió de renovar
-  // uno anterior). A partir de ahí, para evitar tocar sus datos por accidente, "Editar cliente"
-  // y el historial de la ficha dejan de mostrarse acá — el historial sigue disponible desde
-  // la carpeta de Cobrados (abrirDetallePrestamo ya lo muestra sin esta restricción).
-  const clienteFueRenovado = ps.length > 1;
   const btnNuevoCredito = document.getElementById('btnNuevoCreditoFicha');
   const bloqueaRenovacion = actual && !prestamoFinalizado(actual) && porcentajePagadoPrestamo(actual) < 0.5;
   if(bloqueaRenovacion){
@@ -2910,8 +2905,11 @@ function abrirFicha(clienteId){
 
   const puedeEliminar = !!actual && actual.creadoEn === todayISO() && !clienteInactivo(clienteId);
   document.getElementById('btnEliminarCliente').classList.toggle('hidden', !puedeEliminar);
-  document.getElementById('btnVerHistorialPagos').classList.toggle('hidden', !actual || state.pantallaAnterior==='panel-admin' || clienteFueRenovado);
-  document.getElementById('btnEditarClienteFicha').classList.toggle('hidden', state.pantallaAnterior==='panel-admin' || clienteFueRenovado);
+  // "Ver historial de pagos" y "Editar cliente" ya no se muestran nunca en la ficha —
+  // el historial queda disponible desde la carpeta de Cobrados, y editar datos desde
+  // el menú de opciones del cliente en la lista de Clientes.
+  document.getElementById('btnVerHistorialPagos').classList.add('hidden');
+  document.getElementById('btnEditarClienteFicha').classList.add('hidden');
   document.getElementById('btnPagoAdelantado').classList.toggle('hidden', !(actual && actual.creadoEn===todayISO() && !prestamoFinalizado(actual)));
 
   nav('ficha');
@@ -3735,7 +3733,7 @@ function abrirModalCuota(prestamoId, idx, esPagoAdelantado){
           <button class="btn btn-gold" id="btnAbono">🟡 Abono</button>
         </div>
         <div class="field" id="abonoField" style="margin-top:14px; display:none;">
-          <label>Monto del abono <span style="font-weight:400; font-size:12px; color:var(--ink-soft);">(valor cuota ${fmt(montoEsperadoCuota(p,cu))})</span></label>
+          <label>Monto del abono <span style="font-weight:400; font-size:12px; color:var(--ink-soft); white-space:nowrap;">(valor cuota <span style="color:#b7b7b7;">${fmt(montoEsperadoCuota(p,cu))}</span>)</span></label>
           <input type="number" id="montoAbono">
           <span class="kv-sub" style="margin-top:6px;">Si alcanza para más, el sobrante se aplica solo a las próximas cuotas pendientes (empezando por la más vieja).</span>
         </div>
@@ -3753,7 +3751,7 @@ function abrirModalCuota(prestamoId, idx, esPagoAdelantado){
           <button class="btn btn-danger" id="btnNoPago">❌ No pagó</button>
         </div>
         <div class="field" id="abonoField" style="margin-top:14px; display:none;">
-          <label>Monto del abono <span style="font-weight:400; font-size:12px; color:var(--ink-soft);">(valor cuota ${fmt(montoEsperadoCuota(p,cu))})</span></label>
+          <label>Monto del abono <span style="font-weight:400; font-size:12px; color:var(--ink-soft); white-space:nowrap;">(valor cuota <span style="color:#b7b7b7;">${fmt(montoEsperadoCuota(p,cu))}</span>)</span></label>
           <input type="number" id="montoAbono">
           <span class="kv-sub" style="margin-top:6px;">Si alcanza para más, el sobrante se aplica solo a las próximas cuotas pendientes (empezando por la más vieja).</span>
         </div>
