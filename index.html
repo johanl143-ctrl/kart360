@@ -947,7 +947,8 @@ async function cargarDatosDesdeSupabase(){
       estado: cu.estado,
       montoPagado: Number(cu.monto_pagado) || 0,
       fechaPago: cu.fecha_pago,
-      loteId: cu.lote_id
+      loteId: cu.lote_id,
+      montoEsperado: cu.monto_esperado!=null ? Number(cu.monto_esperado) : null
     }))
   }));
 
@@ -1027,6 +1028,26 @@ function marcarPagoInterno(cuota, estado, monto, fecha, loteId){
   cuota.loteId = loteId || uidReal();
 }
 
+// Calcula el monto exacto de cada cuota para que la suma de todas dé exactamente
+// totalPagar, sin diferencia por redondeo. La cuota base es floor(total/n); el resto
+// (siempre menor a n) se reparte sumando 1 a las últimas cuotas, así la diferencia
+// entre cuotas nunca es mayor a $1 en vez de cargarla toda en una sola.
+function calcularMontosCuotas(totalPagar, nCuotas){
+  const base = Math.floor(totalPagar / nCuotas);
+  const resto = Math.round(totalPagar - base * nCuotas); // cuántas cuotas deben llevar +1
+  const montos = [];
+  for(let i=0;i<nCuotas;i++){
+    montos.push(i >= nCuotas - resto ? base + 1 : base);
+  }
+  return montos;
+}
+
+// Monto esperado de una cuota puntual: usa su propio monto_esperado si existe (créditos
+// nuevos), y si no (créditos viejos, previos a este ajuste) cae al cuotaDiaria general del crédito.
+function montoEsperadoCuota(prestamo, cuota){
+  return (cuota.montoEsperado!=null) ? cuota.montoEsperado : prestamo.cuotaDiaria;
+}
+
 function crearPrestamoObj(clienteId, valor, interes, nCuotas, fechaInicio, cuotaManual){
   nCuotas = Math.min(nCuotas, 30);
   const totalPagar = valor + (valor * interes/100);
@@ -1088,7 +1109,7 @@ function saldoRestante(prestamo){
   let saldo = 0;
   prestamo.cuotas.forEach(c=>{
     if(c.estado==='pagada') return;
-    const falta = prestamo.cuotaDiaria - (c.estado==='abono' ? c.montoPagado : 0);
+    const falta = montoEsperadoCuota(prestamo,c) - (c.estado==='abono' ? c.montoPagado : 0);
     saldo += falta;
   });
   return saldo;
@@ -1119,7 +1140,7 @@ function totalRecaudadoHoy(){
 function totalACobrarHoy(){
   const hoy = todayISO();
   let t = 0;
-  state.prestamos.forEach(p=> p.cuotas.forEach(c=>{ if(c.fecha===hoy) t += p.cuotaDiaria; }));
+  state.prestamos.forEach(p=> p.cuotas.forEach(c=>{ if(c.fecha===hoy) t += montoEsperadoCuota(p,c); }));
   return t;
 }
 
@@ -2584,7 +2605,7 @@ function filaCobro(cliente, prestamo, cuota, esPendiente, montoPagadoHoy){
   const esSemanal = prestamo.frecuencia === 'semanal';
   let [pillClass, pillText] = pillEstadoCuotaHoy(cuota, esSemanal);
   if(finalizado){ pillClass = 'pill-ok'; pillText = '🏁 FINALIZÓ'; }
-  const montoMostrado = (montoPagadoHoy!=null) ? montoPagadoHoy : prestamo.cuotaDiaria;
+  const montoMostrado = (montoPagadoHoy!=null) ? montoPagadoHoy : montoEsperadoCuota(prestamo, cuota);
   row.innerHTML = `
     <div class="info"><div class="name">${escapeHtml(cliente.nombre)} ${esSemanal ? '<span title="Crédito semanal" style="font-size:12px; font-weight:600; color:var(--teal); background:var(--teal-tint); padding:1px 6px; border-radius:6px; margin-left:4px;">🗓️ Sem</span>' : ''}</div><div class="meta num">${fmt(montoMostrado)} · ${finalizado ? 'crédito completo' : 'cuota '+cuota.n+'/'+prestamo.nCuotas}</div></div>
     <span class="pill ${pillClass}"${finalizado ? ' style="font-weight:700;"' : ''}>${pillText}</span>`;
@@ -2779,6 +2800,7 @@ async function guardarCliente(){
 
     const totalPagar = valor + valor*interes/100;
     const cuotaDiaria = Math.floor(totalPagar / cuotas);
+    const montosCuotas = calcularMontosCuotas(totalPagar, cuotas);
     const diasEntreCuotas = frecuenciaNC === 'semanal' ? 7 : 1;
     const { data: prestamoDB, error: errorPrestamo } = await supabaseClient
       .from('prestamos')
@@ -2792,7 +2814,7 @@ async function guardarCliente(){
 
     const filasCuotas = [];
     for(let i=0;i<cuotas;i++){
-      filasCuotas.push({ prestamo_id: prestamoDB.id, n: i+1, fecha: addDays(fecha, i*diasEntreCuotas), estado: 'pendiente', monto_pagado: 0 });
+      filasCuotas.push({ prestamo_id: prestamoDB.id, n: i+1, fecha: addDays(fecha, i*diasEntreCuotas), estado: 'pendiente', monto_pagado: 0, monto_esperado: montosCuotas[i] });
     }
     const { data: cuotasDB, error: errorCuotas } = await supabaseClient.from('cuotas').insert(filasCuotas).select();
     if(errorCuotas) throw errorCuotas;
@@ -2804,7 +2826,7 @@ async function guardarCliente(){
       cuotaDiaria, fechaInicio: fecha, creadoEn: prestamoDB.creado_en, totalPagar,
       depurado: false, frecuencia: frecuenciaNC,
       cuotas: cuotasDB.slice().sort((a,b)=>a.n-b.n).map(cu=>({
-        id: cu.id, n: cu.n, fecha: cu.fecha, estado: cu.estado, montoPagado: 0, fechaPago: null, loteId: null
+        id: cu.id, n: cu.n, fecha: cu.fecha, estado: cu.estado, montoPagado: 0, fechaPago: null, loteId: null, montoEsperado: Number(cu.monto_esperado)
       }))
     };
     state.prestamos.push(prestamoLocal);
@@ -2845,11 +2867,16 @@ function abrirFicha(clienteId){
 
   const ps = prestamosDe(clienteId);
   const actual = creditoActualDe(clienteId);
+  // Cliente "renovado": ya tiene más de un crédito registrado (el actual salió de renovar
+  // uno anterior). A partir de ahí, para evitar tocar sus datos por accidente, "Editar cliente"
+  // y el historial de la ficha dejan de mostrarse acá — el historial sigue disponible desde
+  // la carpeta de Cobrados (abrirDetallePrestamo ya lo muestra sin esta restricción).
+  const clienteFueRenovado = ps.length > 1;
   const btnNuevoCredito = document.getElementById('btnNuevoCreditoFicha');
   const bloqueaRenovacion = actual && !prestamoFinalizado(actual) && porcentajePagadoPrestamo(actual) < 0.5;
   if(bloqueaRenovacion){
     const pct = Math.round(porcentajePagadoPrestamo(actual)*100);
-    btnNuevoCredito.textContent = `🔒 Renovar (llevás ${pct}% pagado, se necesita 50%)`;
+    btnNuevoCredito.textContent = `🔒 Renovación: ${pct}% pagado`;
     btnNuevoCredito.classList.add('btn-secondary');
     btnNuevoCredito.classList.remove('btn-primary');
   } else {
@@ -2883,8 +2910,8 @@ function abrirFicha(clienteId){
 
   const puedeEliminar = !!actual && actual.creadoEn === todayISO() && !clienteInactivo(clienteId);
   document.getElementById('btnEliminarCliente').classList.toggle('hidden', !puedeEliminar);
-  document.getElementById('btnVerHistorialPagos').classList.toggle('hidden', !actual || state.pantallaAnterior==='panel-admin');
-  document.getElementById('btnEditarClienteFicha').classList.toggle('hidden', state.pantallaAnterior==='panel-admin');
+  document.getElementById('btnVerHistorialPagos').classList.toggle('hidden', !actual || state.pantallaAnterior==='panel-admin' || clienteFueRenovado);
+  document.getElementById('btnEditarClienteFicha').classList.toggle('hidden', state.pantallaAnterior==='panel-admin' || clienteFueRenovado);
   document.getElementById('btnPagoAdelantado').classList.toggle('hidden', !(actual && actual.creadoEn===todayISO() && !prestamoFinalizado(actual)));
 
   nav('ficha');
@@ -3163,13 +3190,26 @@ async function guardarPrestamo(){
     const nCuotasFinal = cuotasNuevas.length;
     const cuotaDiaria = Math.floor(totalPagar/nCuotasFinal);
 
+    // El monto esperado de las cuotas con historial nunca se toca (mismo criterio que
+    // el resto de sus datos). El resto del total se reparte exacto entre las cuotas
+    // pendientes, para que la suma de TODAS las cuotas siga dando el total del crédito.
+    const cuotaDiariaOriginal = p.cuotaDiaria;
+    const totalHistoricas = cuotasNuevas
+      .filter(cu => cu.id)
+      .reduce((a,cu)=> a + (cu.montoEsperado!=null ? cu.montoEsperado : cuotaDiariaOriginal), 0);
+    const cantidadPendientes = cuotasNuevas.filter(cu => !cu.id).length;
+    const montosPendientes = cantidadPendientes>0
+      ? calcularMontosCuotas(Math.max(totalPagar - totalHistoricas, 0), cantidadPendientes)
+      : [];
+    let idxPendiente = 0;
+
     try{
       await supabaseClient.from('prestamos').update({
         valor, interes, n_cuotas: nCuotasFinal, cuota_diaria: cuotaDiaria, fecha_inicio: fecha, frecuencia: frecuenciaNP
       }).eq('id', p.id);
 
       // Cuotas con historial (ya pagadas/abonadas/no-pago): solo se actualiza la fecha de vencimiento,
-      // por id — nunca se borran ni se tocan monto_pagado / fecha_pago / estado.
+      // por id — nunca se borran ni se tocan monto_pagado / fecha_pago / estado / monto_esperado.
       const historicas = cuotasNuevas.filter(cu => cu.id);
       await Promise.all(historicas.map(cu =>
         supabaseClient.from('cuotas').update({ n: cu.n, fecha: cu.fecha }).eq('id', cu.id)
@@ -3182,7 +3222,7 @@ async function guardarPrestamo(){
       const pendientesNuevas = cuotasNuevas.filter(cu => !cu.id);
       const filas = pendientesNuevas.map(cu => ({
         prestamo_id: p.id, n: cu.n, fecha: cu.fecha, estado: cu.estado,
-        monto_pagado: 0, fecha_pago: null, lote_id: null
+        monto_pagado: 0, fecha_pago: null, lote_id: null, monto_esperado: montosPendientes[idxPendiente++]
       }));
       const { data: pendientesDB, error } = filas.length
         ? await supabaseClient.from('cuotas').insert(filas).select()
@@ -3193,7 +3233,7 @@ async function guardarPrestamo(){
         ...historicas,
         ...pendientesDB.map(cu => ({
           id: cu.id, n: cu.n, fecha: cu.fecha, estado: cu.estado,
-          montoPagado: Number(cu.monto_pagado)||0, fechaPago: cu.fecha_pago, loteId: cu.lote_id
+          montoPagado: Number(cu.monto_pagado)||0, fechaPago: cu.fecha_pago, loteId: cu.lote_id, montoEsperado: Number(cu.monto_esperado)
         }))
       ].sort((a,b)=>a.n-b.n);
 
@@ -3215,6 +3255,7 @@ async function guardarPrestamo(){
   try{
     const totalPagar = valor + valor*interes/100;
     const cuotaDiaria = Math.floor(totalPagar/cuotas);
+    const montosCuotas = calcularMontosCuotas(totalPagar, cuotas);
     const diasEntreCuotas = frecuenciaNP === 'semanal' ? 7 : 1;
     const { data: prestamoDB, error: errorPrestamo } = await supabaseClient
       .from('prestamos')
@@ -3224,7 +3265,7 @@ async function guardarPrestamo(){
 
     const filasCuotas = [];
     for(let i=0;i<cuotas;i++){
-      filasCuotas.push({ prestamo_id: prestamoDB.id, n: i+1, fecha: addDays(fecha, i*diasEntreCuotas), estado: 'pendiente', monto_pagado: 0 });
+      filasCuotas.push({ prestamo_id: prestamoDB.id, n: i+1, fecha: addDays(fecha, i*diasEntreCuotas), estado: 'pendiente', monto_pagado: 0, monto_esperado: montosCuotas[i] });
     }
     const { data: cuotasDB, error: errorCuotas } = await supabaseClient.from('cuotas').insert(filasCuotas).select();
     if(errorCuotas) throw errorCuotas;
@@ -3233,7 +3274,7 @@ async function guardarPrestamo(){
       id: prestamoDB.id, clienteId: state.clienteActivoId, valor, interes, nCuotas: cuotas,
       cuotaDiaria, fechaInicio: fecha, creadoEn: prestamoDB.creado_en, totalPagar, depurado: false, frecuencia: frecuenciaNP,
       cuotas: cuotasDB.slice().sort((a,b)=>a.n-b.n).map(cu=>({
-        id: cu.id, n: cu.n, fecha: cu.fecha, estado: cu.estado, montoPagado: 0, fechaPago: null, loteId: null
+        id: cu.id, n: cu.n, fecha: cu.fecha, estado: cu.estado, montoPagado: 0, fechaPago: null, loteId: null, montoEsperado: Number(cu.monto_esperado)
       }))
     };
     state.prestamos.push(p);
@@ -3466,7 +3507,7 @@ function montoParaNCuotas(p, n){
     if(contadas >= n) break;
     if(cu.estado === 'pagada') continue;
     const yaCubierto = cu.estado==='abono' ? (cu.montoPagado||0) : 0;
-    monto += (p.cuotaDiaria - yaCubierto);
+    monto += (montoEsperadoCuota(p,cu) - yaCubierto);
     contadas++;
   }
   return Math.max(0, Math.min(Math.round(monto), Math.round(saldoRestante(p))));
@@ -3506,9 +3547,10 @@ function distribuirPago(p, montoTotal){
     if(restante<=0) break;
     if(cu.estado==='pagada') continue;
     const yaCubierto = (cu.estado==='abono') ? (cu.montoPagado||0) : 0;
-    const falta = p.cuotaDiaria - yaCubierto;
+    const montoCuota = montoEsperadoCuota(p,cu);
+    const falta = montoCuota - yaCubierto;
     if(restante >= falta){
-      marcarPagoInterno(cu, 'pagada', p.cuotaDiaria, hoy, loteId);
+      marcarPagoInterno(cu, 'pagada', montoCuota, hoy, loteId);
       restante -= falta;
       cuotasCompletadas++;
     } else {
@@ -3530,6 +3572,7 @@ function mensajeDistribucion(resultado){
 
 function renderCuotaGrid(p){
   const hoy = todayISO();
+  const cliente = state.clientes.find(cl=>cl.id===p.clienteId);
   const grid = document.getElementById('cuotaGrid');
   grid.innerHTML = '';
   let i = 0;
@@ -3577,11 +3620,36 @@ function renderCuotaGrid(p){
         : esHoySinPagar ? 'Cuota de hoy'
         : (cuotaEstaAtrasada(cu,hoy) ? 'Atrasada' : 'Pendiente');
       const montoInfo = (cu.montoPagado||0)>0 ? ` · ${fmt(cu.montoPagado)}` : '';
-      toast(`Cuota ${cu.n} de ${p.nCuotas} · ${fechaConDia(cu.fecha)} · ${estadoTxt}${montoInfo}`);
+
+      // Pago ya registrado (pagada o con abono) de hasta 3 días atrás: se puede reenviar
+      // el comprobante sin tocar el pago. Más viejo que eso, o sin teléfono, solo se informa.
+      const yaPagada = (cu.estado==='pagada' || cu.estado==='abono') && (cu.montoPagado||0)>0 && !!cu.fechaPago;
+      const dentroDe3Dias = yaPagada && diasEntre(cu.fechaPago, hoy) >= 0 && diasEntre(cu.fechaPago, hoy) <= 3;
+      if(dentroDe3Dias && cliente && cliente.telefono){
+        abrirOpcionesCuotaPagada(cliente, p, cu, `Cuota ${cu.n} de ${p.nCuotas} · ${fechaConDia(cu.fecha)} · ${estadoTxt}${montoInfo}`);
+      } else {
+        toast(`Cuota ${cu.n} de ${p.nCuotas} · ${fechaConDia(cu.fecha)} · ${estadoTxt}${montoInfo}`);
+      }
     };
     grid.appendChild(chip);
     i++;
   }
+}
+
+// Barra con la opción de reenviar el comprobante de un pago ya registrado (pagada/abono),
+// sin modificar ni duplicar el pago — solo vuelve a armar y abrir el mensaje de WhatsApp.
+function abrirOpcionesCuotaPagada(cliente, prestamo, cuota, infoTexto){
+  const bar = document.createElement('div');
+  bar.style.cssText = 'position:fixed; bottom:78px; left:50%; transform:translateX(-50%); background:#fff; border:1px solid var(--line); border-radius:16px; box-shadow:0 10px 30px rgba(0,0,0,0.22); padding:14px 16px; display:flex; flex-direction:column; gap:10px; align-items:stretch; z-index:60; width:88%; max-width:340px;';
+  bar.innerHTML = `
+    <span style="font-size:13px; color:var(--ink-soft); text-align:center;">${infoTexto}</span>
+    <button id="btnReenviarComprobante" style="font-size:15px; font-weight:700; padding:13px 12px; border-radius:12px; border:none; background:var(--teal); color:#fff; cursor:pointer;">📤 Enviar comprobante</button>
+    <button id="btnCerrarOpcionesCuota" style="font-size:13px; padding:9px 10px; border-radius:10px; border:1px solid var(--line); background:#fff; color:var(--ink-soft); cursor:pointer;">Cerrar</button>
+  `;
+  document.body.appendChild(bar);
+  const cerrar = ()=>{ if(bar.parentNode) bar.remove(); };
+  bar.querySelector('#btnReenviarComprobante').onclick = ()=>{ enviarComprobanteWhatsapp(cliente, prestamo, cuota); cerrar(); };
+  bar.querySelector('#btnCerrarOpcionesCuota').onclick = cerrar;
 }
 
 
@@ -3634,7 +3702,7 @@ function abrirModalCuota(prestamoId, idx, esPagoAdelantado){
   const hoy = todayISO();
   // Caso especial: la cuota quedó en "abono" un día anterior, pero todavía falta plata
   // para completarla — hay que poder seguir cobrándosela, no queda "trabada".
-  const esAbonoConSaldoPendiente = cu.estado==='abono' && cu.fechaPago!==hoy && (p.cuotaDiaria - cu.montoPagado) > 0;
+  const esAbonoConSaldoPendiente = cu.estado==='abono' && cu.fechaPago!==hoy && (montoEsperadoCuota(p,cu) - cu.montoPagado) > 0;
   // Un abono en $0 no descontó nada: se trata como si la cuota siguiera sin tocar.
   const esAbonoCero = cu.estado==='abono' && (cu.montoPagado||0)===0;
   const yaRegistrada = !esAbonoConSaldoPendiente && !esAbonoCero && (cu.estado==='pagada' || cu.estado==='abono' || (cu.estado==='no-pago' && cu.fechaPago===hoy));
@@ -3648,7 +3716,7 @@ function abrirModalCuota(prestamoId, idx, esPagoAdelantado){
   backdrop.innerHTML = `
     <div class="modal-sheet">
       <h3 style="font-size:19px; margin-bottom:2px;">Cuota ${cu.n} de ${p.nCuotas}</h3>
-      <div class="num" style="font-size:30px; font-weight:700; color:var(--teal); text-align:center; line-height:1.2; margin:6px 0 2px 0;">${fmt(p.cuotaDiaria)}</div>
+      <div class="num" style="font-size:30px; font-weight:700; color:var(--teal); text-align:center; line-height:1.2; margin:6px 0 2px 0;">${fmt(montoEsperadoCuota(p,cu))}</div>
       <div class="sub" style="font-size:13.5px; margin-bottom:4px;">Vence el ${fechaConDia(cu.fecha)}${cu.fechaPago ? ' · Gestionada el '+cu.fechaPago : ''}</div>
 
       ${bloqueadaPorOrden ? `
@@ -3700,7 +3768,7 @@ function abrirModalCuota(prestamoId, idx, esPagoAdelantado){
       backdrop.querySelector('#btnPagada').onclick = async function(){
         if(this.disabled) return;
         this.disabled = true; this.textContent = 'Guardando...';
-        marcarPagoInterno(cu,'pagada',p.cuotaDiaria,todayISO());
+        marcarPagoInterno(cu,'pagada',montoEsperadoCuota(p,cu),todayISO());
         await sincronizarCuota(cu);
         if(cliente.telefono) preguntarEnviarComprobante(cliente, p, cu);
         finCambioCuota(p, backdrop, true, 'Cobro registrado', 'cobrados');
@@ -3726,7 +3794,7 @@ function abrirModalCuota(prestamoId, idx, esPagoAdelantado){
         btnAbonoEl.disabled = true;
         btnAbonoEl.textContent = 'Guardando...';
         const inputAbono = backdrop.querySelector('#montoAbono').value;
-        const val = inputAbono.trim()==='' ? Math.round(p.cuotaDiaria/2) : (parseFloat(inputAbono) || 0);
+        const val = inputAbono.trim()==='' ? Math.round(montoEsperadoCuota(p,cu)/2) : (parseFloat(inputAbono) || 0);
         let resultado;
         const cuotasAntes = p.cuotas.map(c2=>({id:c2.id, estado:c2.estado, montoPagado:c2.montoPagado, fechaPago:c2.fechaPago, loteId:c2.loteId}));
         if(val === 0){
